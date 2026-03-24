@@ -157,6 +157,11 @@ jobs:
             ./greq "search term" /path/to/search --n 5 -m -l
             ```
             
+            ## Uninstall
+            ```bash
+            curl -sSL https://raw.githubusercontent.com/KlausSchaefers/greq/main/uninstall.sh | bash
+            ```
+            
             **Note for macOS users**: If you get "cannot be verified" error, run `xattr -d com.apple.quarantine greq` to remove the quarantine attribute.
           draft: false
           prerelease: false

@@ -30,16 +30,12 @@ struct Cli {
     context: usize,
     
     /// Maximum chunk size in characters
-    #[arg(long, default_value = "200")]
+    #[arg(short = 's', long, default_value = "200")]
     chunk_size: usize,
     
     /// Output format (text or json)
-    #[arg(long, default_value = "text")]
+    #[arg(short = 'f', long, default_value = "text")]
     format: String,
-    
-    /// Show only file names (no content)
-    #[arg(short = 'f', long)]
-    files_only: bool,
     
     /// Show metadata (filename, score, position)
     #[arg(short = 'm', long, default_value = "false")]
@@ -114,14 +110,12 @@ fn display_text_results(results: &[SearchResult], cli: &Cli) {
             );
         }
         
-        if !cli.files_only {
-            // Show content with or without highlighting
-            if cli.highlight {
-                let highlighted = highlight_query_in_text(&result.content, &result.matched_text);
-                println!("{}", highlighted);
-            } else {
-                println!("{}", result.content);
-            }
+        // Show content with or without highlighting
+        if cli.highlight {
+            let highlighted = highlight_query_in_text(&result.content, &result.matched_text);
+            println!("{}", highlighted);
+        } else {
+            println!("{}", result.content);
         }
     }
 }

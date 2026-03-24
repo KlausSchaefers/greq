@@ -6,21 +6,70 @@ Unlike grep, which performs exact pattern matching, Greq applies lightweight lin
 
 Greq works best with natural-language or multi-word queries. For simple single-keyword searches, grep is usually the faster and more appropriate tool.
 
-## 🚀 Installation
-
-### Quick Install (Recommended)
+## 🚀 Quick Install (Recommended)
 
 Install with a single command:
 ```bash
 curl -sSL https://raw.githubusercontent.com/KlausSchaefers/greq/main/install.sh | bash
 ```
 
-This script will:
-- ✅ Detect your platform automatically
-- ✅ Download the latest release
-- ✅ Install to `/usr/local/bin/`
-- ✅ Handle macOS security automatically
-- ✅ Make the binary executable
+
+## 🔍 How it Works
+
+Greq uses the BM25 (Best Matching 25) ranking algorithm to score text relevance:
+
+1. **Document Chunking**: Files are split into overlapping chunks for better context
+2. **BM25 Scoring**: Each chunk is scored based on term frequency and document frequency
+3. **Context Expansion**: Results include surrounding chunks for better context
+4. **Ranking**: Results are sorted by relevance score
+
+This makes Greq particularly effective for:
+- ✅ Multi-word queries
+- ✅ Concept-based searches  
+- ✅ Finding relevant passages in large codebases
+- ✅ Research and documentation search
+
+Use `grep` for:
+- ❌ Single keyword searches
+- ❌ Exact pattern matching
+- ❌ Regular expressions
+
+
+## Examples
+```bash
+# Basic search with metadata and highlighting
+greq "machine learning" docs/ -m -l
+
+# Search with top 5 results and context
+greq "rust programming" . --n 5 -C 2
+
+# JSON output for scripting
+greq "error handling" src/ -f json
+
+# Search specific file types
+greq "function" . --extensions "rs,py,js"
+
+# Different chunk sizes for better context
+greq "algorithms" . -s 300
+```
+
+### Options
+```
+    <QUERY>                  Search query
+    [PATH]                   Directory or file to search [default: .]
+
+  -e, --extensions <EXT>     File extensions (e.g., "rs,py,js")
+  -n, --n <N>               Number of results [default: 3]
+  -C, --context <CONTEXT>   Context chunks around matches [default: 1]
+  -s, --chunk-size <SIZE>   Chunk size in characters [default: 200]
+  -f, --format <FORMAT>     Output format: text or json [default: text]
+  -m, --show-meta           Show metadata (filename, score, position)
+  -l, --highlight           Enable highlighting of search terms
+  -h, --help                Print help
+  -V, --version             Print version
+```
+
+
 
 ### Manual Download
 
@@ -35,6 +84,25 @@ Alternatively, download manually from the [Releases page](https://github.com/kla
 After downloading, make the binary executable (Linux/macOS):
 ```bash
 chmod +x greq
+```
+
+
+### Uninstall
+
+To remove greq from your system:
+
+**Quick uninstall (Recommended):**
+```bash
+curl -sSL https://raw.githubusercontent.com/KlausSchaefers/greq/main/uninstall.sh | bash
+```
+
+**Manual removal:**
+```bash
+# Remove the binary
+sudo rm /usr/local/bin/greq
+
+# For Windows (if applicable)
+# rm /usr/local/bin/greq.exe
 ```
 
 #### macOS Security Notice
@@ -73,62 +141,3 @@ cargo build --release
 ```bash
 greq "search query" [path] [options]
 ```
-
-### Examples
-```bash
-# Basic search with metadata and highlighting
-greq "machine learning" docs/ -m -l
-
-# Search with top 5 results and context
-greq "rust programming" . --n 5 -C 2
-
-# JSON output for scripting
-greq "error handling" src/ --format json
-
-# Search specific file types
-greq "function" . --extensions "rs,py,js"
-
-# Files only (no content)
-greq "config" . -f
-
-# Different chunk sizes for better context
-greq "algorithms" . --chunk-size 300
-```
-
-### Options
-```
-    <QUERY>                  Search query
-    [PATH]                   Directory or file to search [default: .]
-
-  -e, --extensions <EXT>     File extensions (e.g., "rs,py,js")
-  -n, --n <N>               Number of results [default: 3]
-  -C, --context <CONTEXT>   Context chunks around matches [default: 1]
-      --chunk-size <SIZE>   Chunk size in characters [default: 200]
-      --format <FORMAT>     Output format: text or json [default: text]
-  -f, --files-only          Show only file names
-  -m, --show-meta           Show metadata (filename, score, position)
-  -l, --highlight           Enable highlighting of search terms
-  -h, --help                Print help
-  -V, --version             Print version
-```
-
-## 🔍 How it Works
-
-Greq uses the BM25 (Best Matching 25) ranking algorithm to score text relevance:
-
-1. **Document Chunking**: Files are split into overlapping chunks for better context
-2. **BM25 Scoring**: Each chunk is scored based on term frequency and document frequency
-3. **Context Expansion**: Results include surrounding chunks for better context
-4. **Ranking**: Results are sorted by relevance score
-
-This makes Greq particularly effective for:
-- ✅ Multi-word queries
-- ✅ Concept-based searches  
-- ✅ Finding relevant passages in large codebases
-- ✅ Research and documentation search
-
-Use `grep` for:
-- ❌ Single keyword searches
-- ❌ Exact pattern matching
-- ❌ Regular expressions
-

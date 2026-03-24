@@ -10,15 +10,10 @@ Greq will work better for longer queries, for single keyword queries `grep` is a
 
 Pre-built binaries are automatically created for every commit to master. Download the latest release from the [Releases page](https://github.com/klausschaefers/greq/releases):
 
-- **Linux x86_64**: `greq-linux-x86_64`
-- **Linux ARM64**: `greq-linux-arm64` 
-- **Windows**: `greq-windows-x86_64.exe`
-- **macOS Intel**: `greq-macos-intel`
-- **macOS Apple Silicon**: `greq-macos-arm64`
 
 After downloading, make the binary executable (Linux/macOS):
 ```bash
-chmod +x greq-*
+chmod +x greq
 ```
 
 ### Build from Source
@@ -33,17 +28,8 @@ cargo build
 cargo build --release
 ```
 
-**Cross-platform builds**
-```bash
-# macOS only (both Intel and Apple Silicon)
-./build-macos.sh
 
-# See CROSS_PLATFORM_BUILD.md for Linux and Windows builds
-```
-
-## 📖 Usage
-
-### Basic Usage
+## Usage
 ```bash
 greq "search query" [path] [options]
 ```
@@ -106,31 +92,3 @@ Use `grep` for:
 - ❌ Exact pattern matching
 - ❌ Regular expressions
 
-## 🛠️ Development
-
-### Running Tests
-```bash
-cargo test
-```
-
-### Cross-platform Builds
-The project includes GitHub Actions for automated cross-platform builds. Every commit to master triggers builds for all supported platforms.
-
-Local cross-compilation setup is documented in `CROSS_PLATFORM_BUILD.md`.
-
-
-# Examples
-
-```sh
-# Plain text (no highlighting, no metadata) - default
-cargo run -- "karate" tests/data/ --n 2
-
-# With highlighting only
-cargo run -- "karate" tests/data/ --n 1 -l
-
-# With both metadata and highlighting
-cargo run -- "karate" tests/data/ --n 1 -m -l
-
-# JSON format (highlighting parameter ignored)
-cargo run -- "karate" tests/data/ --n 1 --format json
-```

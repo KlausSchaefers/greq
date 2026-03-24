@@ -6,7 +6,6 @@ Greq will work better for longer queries, for single keyword queries `grep` is a
 
 ## 🚀 Installation
 
-### Download Pre-built Binaries (Recommended)
 
 Pre-built binaries are automatically created for every commit to master. Download the latest release from the [Releases page](https://github.com/klausschaefers/greq/releases):
 
@@ -17,7 +16,11 @@ chmod +x greq
 ```
 
 #### macOS Security Notice
-On macOS, you may see "cannot be verified" error. This is because the binary isn't signed with an Apple Developer certificate. To fix this:
+On macOS, you may see "cannot be verified" error if downloading unsigned binaries. This is because the binary isn't signed with an Apple Developer certificate. 
+
+**For signed releases** (when available): No additional steps needed - signed binaries will run directly.
+
+**For unsigned releases**, to fix the verification error:
 
 **Option 1: Remove quarantine attribute (Recommended)**
 ```bash

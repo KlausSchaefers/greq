@@ -1,8 +1,10 @@
 # Greq = Grep + Query
 
-Greq is a CLI tool to search files and return relevant sections. Greq is optimzied to provide contex to agents. It is different to `grep` in that it runs a simple linguistic analysis (BM25) on the text and ranks the file sections according to the importance regarding the query. It's like a mini search engine.
+Greq is a CLI tool that searches files and returns the most relevant sections. It’s designed to provide concise, high-signal context for AI agents, helping reduce token usage while preserving the information that matters.
 
-Greq will work better for longer queries, for single keyword queries `grep` is a better option.
+Unlike grep, which performs exact pattern matching, Greq applies lightweight linguistic ranking (BM25) to score and sort file sections based on how relevant they are to your query. In practice, it behaves like a small search engine in your shell.
+
+Greq works best with natural-language or multi-word queries. For simple single-keyword searches, grep is usually the faster and more appropriate tool.
 
 ## 🚀 Installation
 

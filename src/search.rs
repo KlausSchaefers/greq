@@ -1,20 +1,21 @@
 use crate::{Document, bm25::BM25};
 use std::path::PathBuf;
-use rayon::prelude::*;
+use serde::{Serialize, Deserialize};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct SearchResult {
     pub file_path: PathBuf,
     pub score: f64,
-    pub line_number: usize,
+    pub chunk_index: usize,
     pub content: String,
     pub matched_text: String,
+    pub start_pos: usize,
+    pub end_pos: usize,
 }
 
 pub struct SearchEngine {
     documents: Vec<Document>,
     bm25: BM25,
-    case_sensitive: bool,
 }
 
 impl SearchEngine {
@@ -23,100 +24,96 @@ impl SearchEngine {
         Self {
             documents,
             bm25,
-            case_sensitive: false, // Default to case-insensitive
         }
     }
     
-    pub fn set_case_sensitive(&mut self, case_sensitive: bool) {
-        self.case_sensitive = case_sensitive;
-    }
-    
-    /// Search for a query and return ranked results
-    pub fn search(&self, query: &str, max_results: usize) -> Vec<SearchResult> {
-        let query_terms = self.tokenize(query);
+    /// Search for a query and return ranked chunk results with context
+    pub fn search(&self, query: &str, n: usize, context: usize) -> Vec<SearchResult> {
+        // Always use lowercase for search
+        let query_terms = self.tokenize(&query.to_lowercase());
         if query_terms.is_empty() {
             return Vec::new();
         }
         
-        // Score each document using BM25
-        let mut results: Vec<SearchResult> = self.documents
-            .par_iter()
-            .enumerate()
-            .filter_map(|(doc_idx, doc)| {
-                self.search_document(doc, doc_idx, &query_terms, query)
-            })
-            .collect();
+        // Score each chunk using BM25
+        let mut chunk_results: Vec<(usize, usize, f64)> = Vec::new(); // (doc_idx, chunk_idx, score)
         
-        // Sort by score (highest first)
-        results.sort_by(|a, b| b.score.partial_cmp(&a.score).unwrap_or(std::cmp::Ordering::Equal));
-        
-        // Limit results
-        results.truncate(max_results);
-        results
-    }
-    
-    fn search_document(
-        &self, 
-        document: &Document, 
-        doc_idx: usize, 
-        query_terms: &[String], 
-        _original_query: &str
-    ) -> Option<SearchResult> {
-        // Find the best matching line in the document
-        let mut best_score = 0.0;
-        let mut best_line = 1;
-        let mut matched_text = String::new();
-        
-        for (line_idx, line) in document.lines.iter().enumerate() {
-            let line_terms = self.tokenize(line);
-            let line_score = self.bm25.score_line(&line_terms, query_terms, doc_idx);
-            
-            if line_score > best_score {
-                best_score = line_score;
-                best_line = line_idx + 1;
-                matched_text = self.extract_matched_portion(line, query_terms);
+        for (doc_idx, document) in self.documents.iter().enumerate() {
+            for (chunk_idx, chunk) in document.chunks.iter().enumerate() {
+                let chunk_terms = self.tokenize(&chunk.content.to_lowercase());
+                let score = self.bm25.score_chunk(&chunk_terms, &query_terms, doc_idx, chunk_idx);
+                
+                if score > 0.01 {
+                    chunk_results.push((doc_idx, chunk_idx, score));
+                }
             }
         }
         
-        // Only return results with meaningful scores
-        if best_score > 0.01 {
-            Some(SearchResult {
-                file_path: document.file_path.clone(),
-                score: best_score,
-                line_number: best_line,
-                content: document.content.clone(),
-                matched_text,
-            })
-        } else {
-            None
+        // Sort by score (highest first)
+        chunk_results.sort_by(|a, b| b.2.partial_cmp(&a.2).unwrap_or(std::cmp::Ordering::Equal));
+        
+        // Take top N and expand with context
+        let mut results = Vec::new();
+        let top_chunks: Vec<_> = chunk_results.into_iter().take(n).collect();
+        
+        for (doc_idx, chunk_idx, score) in top_chunks {
+            let document = &self.documents[doc_idx];
+            
+            // Get expanded chunks with context
+            let expanded_chunks = document.expand_chunks(&[chunk_idx], context);
+            
+            for expanded_chunk in expanded_chunks {
+                let matched_text = self.extract_matched_portion(&expanded_chunk.content, &query_terms);
+                
+                results.push(SearchResult {
+                    file_path: document.file_path.clone(),
+                    score,
+                    chunk_index: chunk_idx,
+                    content: expanded_chunk.content,
+                    matched_text,
+                    start_pos: expanded_chunk.start,
+                    end_pos: expanded_chunk.end,
+                });
+            }
         }
+        
+        results
     }
     
-    fn extract_matched_portion(&self, line: &str, query_terms: &[String]) -> String {
-        // Find the first matching term in the line for highlighting
+    fn extract_matched_portion(&self, content: &str, query_terms: &[String]) -> String {
+        // Find the first matching term in the content for highlighting
         for term in query_terms {
-            let search_line = line.to_lowercase();
-            
-            if search_line.contains(term) {
-                // Find the actual case in the original line
-                if let Some(start) = search_line.find(term) {
-                    return line.chars()
-                        .skip(start)
-                        .take(term.len())
-                        .collect();
-                }
+            if let Some(matched_word) = self.find_matching_word_in_content(content, term) {
+                return matched_word;
             }
         }
         
         query_terms.first().unwrap_or(&String::new()).clone()
     }
     
-    fn tokenize(&self, text: &str) -> Vec<String> {
-        // Always use lowercase for consistency with BM25
-        let processed_text = text.to_lowercase();
+    fn find_matching_word_in_content(&self, content: &str, term: &str) -> Option<String> {
+        let words: Vec<&str> = content.split_whitespace().collect();
         
-        // Simple tokenization - split on whitespace and common punctuation
-        processed_text
+        for word in words {
+            // Clean the word of punctuation for comparison
+            let clean_word: String = word.chars()
+                .filter(|c| c.is_alphanumeric())
+                .collect::<String>()
+                .to_lowercase();
+            
+            // Check if this cleaned word contains our search term
+            if clean_word.contains(term) {
+                // Return the original word (with punctuation and original case)
+                return Some(word.to_string());
+            }
+        }
+        
+        None
+    }
+    
+    fn tokenize(&self, text: &str) -> Vec<String> {
+        // Always use lowercase for consistency
+        text.to_lowercase()
             .split_whitespace()
             .flat_map(|word| {
                 word.split(&[',', '.', ';', ':', '!', '?', '(', ')', '[', ']', '{', '}', '"', '\''])

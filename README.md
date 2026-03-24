@@ -4,15 +4,34 @@ Greq is a CLI tool to search files and return relevant sections. It is different
 
 Greq will work better for longer queries, for single keyword queries `grep` is a better option.
 
-#Examples
+
+
+# Build
+
+
+Debug
+```
+cargo build
+```
+
+Release
+```
+cargo build --release
+```
+
+
+# Examples
 
 ```sh
-# Search for "BM25" in Rust files
-cargo run -- "BM25" src/ --extensions rs
+# Plain text (no highlighting, no metadata) - default
+cargo run -- "karate" tests/data/ --n 2
 
-# Case-insensitive search with context
-cargo run -- "search" --ignore-case --context 3
+# With highlighting only
+cargo run -- "karate" tests/data/ --n 1 -l
 
-# Show only filenames
-cargo run -- "query" --files-only
+# With both metadata and highlighting
+cargo run -- "karate" tests/data/ --n 1 -m -l
+
+# JSON format (highlighting parameter ignored)
+cargo run -- "karate" tests/data/ --n 1 --format json
 ```

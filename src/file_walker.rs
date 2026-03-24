@@ -8,15 +8,21 @@ pub struct FileWalker {
     root_path: PathBuf,
     extensions: Option<Vec<String>>,
     config: Config,
+    chunk_size: usize,
 }
 
 impl FileWalker {
     pub fn new(root_path: PathBuf, extensions: Option<Vec<String>>) -> Self {
+        Self::new_with_chunk_size(root_path, extensions, 200)
+    }
+    
+    pub fn new_with_chunk_size(root_path: PathBuf, extensions: Option<Vec<String>>, chunk_size: usize) -> Self {
         let config = Config::default();
         Self {
             root_path,
             extensions,
             config,
+            chunk_size,
         }
     }
     
@@ -98,7 +104,7 @@ impl FileWalker {
     
     fn read_file_as_document(&self, path: &PathBuf) -> Result<Document> {
         let content = std::fs::read_to_string(path)?;
-        Ok(Document::new(path.clone(), content))
+        Ok(Document::new_with_chunk_size(path.clone(), content, self.chunk_size))
     }
 }
 

@@ -1,8 +1,8 @@
 use clap::Parser;
 use anyhow::Result;
-use greq::search::{SearchEngine, SearchResult};
-use greq::file_walker::FileWalker;
+use greq::{SearchEngine, SearchResult, FileWalker};
 use colored::*;
+use serde_json;
 use std::path::PathBuf;
 
 #[derive(Parser)]
@@ -21,25 +21,35 @@ struct Cli {
     #[arg(short, long)]
     extensions: Option<String>,
     
-    /// Maximum number of results to show
-    #[arg(short = 'n', long, default_value = "20")]
-    max_results: usize,
+    /// Number of top results to show
+    #[arg(short = 'n', long, default_value = "3")]
+    n: usize,
     
-    /// Show line numbers
-    #[arg(short = 'l', long)]
-    line_numbers: bool,
-    
-    /// Context lines around matches
-    #[arg(short = 'C', long, default_value = "2")]
+    /// Context chunks around matches
+    #[arg(short = 'C', long, default_value = "1")]
     context: usize,
     
-    /// Case insensitive search
-    #[arg(short = 'i', long)]
-    ignore_case: bool,
+    /// Maximum chunk size in characters
+    #[arg(long, default_value = "200")]
+    chunk_size: usize,
+    
+    /// Output format (text or json)
+    #[arg(long, default_value = "text")]
+    format: String,
     
     /// Show only file names (no content)
     #[arg(short = 'f', long)]
     files_only: bool,
+    
+    /// Show metadata (filename, score, position)
+    #[arg(short = 'm', long, default_value = "false")]
+    show_meta: bool,
+    
+    /// Enable highlighting of search terms
+    #[arg(short = 'l', long, default_value = "false")]
+    highlight: bool,
+
+    
 }
 
 fn main() -> Result<()> {
@@ -58,76 +68,90 @@ fn main() -> Result<()> {
         println!("No files found to search");
         return Ok(());
     }
-
-    for doc in &documents {
-        println!("Indexed: {}", doc.file_path.to_string_lossy());
-    }
     
     // Create search engine and perform search
-    let mut search_engine = SearchEngine::new(documents);
-    search_engine.set_case_sensitive(!cli.ignore_case);
-    
-    let results = search_engine.search(&cli.query, cli.max_results);
+    let search_engine = SearchEngine::new(documents);
+    let results = search_engine.search(&cli.query, cli.n, cli.context);
     
     if results.is_empty() {
-        println!("No matches found for: {}", cli.query.yellow());
+        if cli.format == "json" {
+            println!("[]");
+        } else {
+            println!("No matches found for: {}", cli.query.yellow());
+        }
         return Ok(());
     }
     
     // Display results
-    display_results(&results, &cli);
+    if cli.format == "json" {
+        display_json_results(&results)?;
+    } else {
+        display_text_results(&results, &cli);
+    }
     
     Ok(())
 }
 
-fn display_results(results: &[SearchResult], cli: &Cli) {
+fn display_json_results(results: &[SearchResult]) -> Result<()> {
+    let json = serde_json::to_string_pretty(results)?;
+    println!("{}", json);
+    Ok(())
+}
+
+fn display_text_results(results: &[SearchResult], cli: &Cli) {
     for (i, result) in results.iter().enumerate() {
         if i > 0 {
             println!();
         }
         
-        // File header with score
-        println!(
-            "{}{}  {}",
-            result.file_path.to_string_lossy().blue().bold(),
-            if cli.line_numbers { format!(":{}", result.line_number) } else { String::new() },
-            format!("(score: {:.3})", result.score).dimmed()
-        );
+        if cli.show_meta {
+            // File header with score
+            println!(
+                "{}:{}  {}",
+                result.file_path.to_string_lossy().blue().bold(),
+                result.start_pos,
+                format!("(score: {:.3})", result.score).dimmed()
+            );
+        }
         
         if !cli.files_only {
-            // Show context with highlighted matches
-            display_match_context(result, cli);
+            // Show content with or without highlighting
+            if cli.highlight {
+                let highlighted = highlight_query_in_text(&result.content, &result.matched_text);
+                println!("{}", highlighted);
+            } else {
+                println!("{}", result.content);
+            }
         }
     }
 }
 
-fn display_match_context(result: &SearchResult, cli: &Cli) {
-    let lines: Vec<&str> = result.content.lines().collect();
-    let line_idx = result.line_number.saturating_sub(1);
+fn highlight_query_in_text(content: &str, matched_word: &str) -> String {
+    // Case-insensitive highlighting of the matched word
+    let content_lower = content.to_lowercase();
+    let matched_word_lower = matched_word.to_lowercase();
     
-    let start = line_idx.saturating_sub(cli.context);
-    let end = (line_idx + cli.context + 1).min(lines.len());
-    
-    for i in start..end {
-        let line = lines.get(i).unwrap_or(&"");
-        let line_num = i + 1;
+    // If the matched word appears in the content, highlight it
+    if content_lower.contains(&matched_word_lower) {
+        // Find all words in content and highlight matches
+        let words: Vec<&str> = content.split_whitespace().collect();
+        let highlighted_words: Vec<String> = words.into_iter().map(|word| {
+            let clean_word = word.chars()
+                .filter(|c| c.is_alphanumeric())
+                .collect::<String>()
+                .to_lowercase();
+            
+            // If this word contains our search term, highlight it
+            if clean_word.contains(&matched_word_lower) {
+                word.yellow().to_string()
+            } else {
+                word.to_string()
+            }
+        }).collect();
         
-        let prefix = if cli.line_numbers {
-            format!("{:4}: ", line_num)
-        } else {
-            "      ".to_string()
-        };
-        
-        if i == line_idx {
-            // Highlight the matching line
-            println!("{}{}", prefix.green(), highlight_query_in_line(line, &result.matched_text));
-        } else {
-            println!("{}{}", prefix.dimmed(), line.dimmed());
-        }
+        highlighted_words.join(" ")
+    } else {
+        // Fallback to simple replacement if word-based highlighting fails
+        content.to_string()
     }
-}
-
-fn highlight_query_in_line(line: &str, query: &str) -> String {
-    // Simple highlighting - replace with more sophisticated matching later
-    line.replace(query, &query.yellow().to_string())
 }

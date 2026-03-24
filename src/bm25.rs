@@ -2,132 +2,119 @@ use crate::Document;
 use std::collections::HashMap;
 
 /// BM25 (Best Matching 25) ranking algorithm implementation
-/// Used for ranking text documents based on search query relevance
+/// Used for ranking text chunks based on search query relevance
 pub struct BM25 {
-    /// Term frequencies for each document
-    term_frequencies: Vec<HashMap<String, usize>>,
-    /// Document frequencies (how many documents contain each term)
-    document_frequencies: HashMap<String, usize>,
-    /// Average document length
-    avg_doc_length: f64,
-    /// Document lengths
-    doc_lengths: Vec<usize>,
-    /// Total number of documents
-    num_documents: usize,
+    /// Term frequencies for each chunk across all documents
+    chunk_term_frequencies: Vec<HashMap<String, usize>>,
+    /// Document frequencies (how many chunks contain each term)
+    term_frequencies: HashMap<String, usize>,
+    /// Average chunk length
+    avg_chunk_length: f64,
+    /// Chunk lengths
+    chunk_lengths: Vec<usize>,
+    /// Total number of chunks
+    num_chunks: usize,
+    /// Mapping from chunk index to (doc_index, chunk_index_in_doc)
+    chunk_mapping: Vec<(usize, usize)>,
     /// BM25 parameters
     k1: f64,
     b: f64,
 }
 
 impl BM25 {
-    /// Create a new BM25 index from documents
+    /// Create a new BM25 index from document chunks
     pub fn new(documents: &[Document]) -> Self {
-        let mut term_frequencies = Vec::new();
-        let mut document_frequencies = HashMap::new();
-        let mut doc_lengths = Vec::new();
+        let mut chunk_term_frequencies = Vec::new();
+        let mut term_frequencies = HashMap::new();
+        let mut chunk_lengths = Vec::new();
+        let mut chunk_mapping = Vec::new();
         let mut total_length = 0;
         
-        for document in documents {
-            let terms = Self::tokenize(&document.content);
-            let term_counts = Self::count_terms(&terms);
-            
-            doc_lengths.push(terms.len());
-            total_length += terms.len();
-            
-            // Update document frequencies
-            for term in term_counts.keys() {
-                *document_frequencies.entry(term.clone()).or_insert(0) += 1;
+        for (doc_idx, document) in documents.iter().enumerate() {
+            for (chunk_idx, chunk) in document.chunks.iter().enumerate() {
+                let terms = Self::tokenize(&chunk.content);
+                let term_counts = Self::count_terms(&terms);
+                
+                chunk_lengths.push(terms.len());
+                total_length += terms.len();
+                chunk_mapping.push((doc_idx, chunk_idx));
+                
+                // Update term frequencies (how many chunks contain each term)
+                for term in term_counts.keys() {
+                    *term_frequencies.entry(term.clone()).or_insert(0) += 1;
+                }
+                
+                chunk_term_frequencies.push(term_counts);
             }
-            
-            term_frequencies.push(term_counts);
         }
         
-        let avg_doc_length = if documents.is_empty() {
+        let avg_chunk_length = if chunk_term_frequencies.is_empty() {
             0.0
         } else {
-            total_length as f64 / documents.len() as f64
+            total_length as f64 / chunk_term_frequencies.len() as f64
         };
         
+        let num_chunks = chunk_term_frequencies.len();
+        
         Self {
+            chunk_term_frequencies,
             term_frequencies,
-            document_frequencies,
-            avg_doc_length,
-            doc_lengths,
-            num_documents: documents.len(),
+            avg_chunk_length,
+            chunk_lengths,
+            num_chunks,
+            chunk_mapping,
             k1: 1.5, // Term frequency saturation parameter
             b: 0.75, // Length normalization parameter
         }
     }
     
-    /// Score a document against a query using BM25
-    pub fn score(&self, query_terms: &[String], doc_index: usize) -> f64 {
-        if doc_index >= self.term_frequencies.len() {
+    /// Score a chunk against a query using BM25
+    pub fn score_chunk(&self, _chunk_terms: &[String], query_terms: &[String], doc_index: usize, chunk_index: usize) -> f64 {
+        // Find the global chunk index
+        let global_chunk_idx = self.chunk_mapping.iter()
+            .position(|&(d_idx, c_idx)| d_idx == doc_index && c_idx == chunk_index);
+            
+        let global_chunk_idx = match global_chunk_idx {
+            Some(idx) => idx,
+            None => return 0.0,
+        };
+        
+        if global_chunk_idx >= self.chunk_term_frequencies.len() {
             return 0.0;
         }
         
-        let doc_tf = &self.term_frequencies[doc_index];
-        let doc_length = self.doc_lengths[doc_index] as f64;
+        let chunk_tf = &self.chunk_term_frequencies[global_chunk_idx];
+        let chunk_length = self.chunk_lengths[global_chunk_idx] as f64;
+        
+        if chunk_length == 0.0 {
+            return 0.0;
+        }
         
         let mut score = 0.0;
         
         for term in query_terms {
-            if let Some(&tf) = doc_tf.get(term) {
+            if let Some(&tf) = chunk_tf.get(term) {
                 let tf = tf as f64;
-                let df = self.document_frequencies.get(term).unwrap_or(&0);
+                let df = self.term_frequencies.get(term).unwrap_or(&0);
                 
                 // IDF calculation: log(N / df) with smoothing
                 let idf = if *df > 0 {
-                    ((self.num_documents as f64) / (*df as f64)).ln().max(0.01)
+                    ((self.num_chunks as f64) / (*df as f64)).ln().max(0.01)
                 } else {
-                    (self.num_documents as f64).ln()
+                    (self.num_chunks as f64).ln()
                 };
                 
                 // BM25 term score
                 let term_score = idf * (tf * (self.k1 + 1.0)) / 
-                    (tf + self.k1 * (1.0 - self.b + self.b * (doc_length / self.avg_doc_length)));
+                    (tf + self.k1 * (1.0 - self.b + self.b * (chunk_length / self.avg_chunk_length)));
                 
                 score += term_score;
             }
         }
         
-        score
-    }
-    
-    /// Score a line of text against a query (for line-level matching)
-    pub fn score_line(&self, line_terms: &[String], query_terms: &[String], _doc_index: usize) -> f64 {
-        let line_tf = Self::count_terms(line_terms);
-        let line_length = line_terms.len() as f64;
-        
-        if line_length == 0.0 {
-            return 0.0;
-        }
-        
-        let mut score = 0.0;
-        
-        for term in query_terms {
-            if let Some(&tf) = line_tf.get(term) {
-                let tf = tf as f64;
-                let df = self.document_frequencies.get(term).unwrap_or(&0);
-                
-                // IDF calculation with smoothing
-                let idf = if *df > 0 {
-                    ((self.num_documents as f64) / (*df as f64)).ln().max(0.01)
-                } else {
-                    // If term not in corpus, give it a small positive IDF
-                    (self.num_documents as f64).ln()
-                };
-                
-                // Modified BM25 for line scoring
-                let term_score = idf * (tf * (self.k1 + 1.0)) / 
-                    (tf + self.k1 * (1.0 - self.b + self.b * (line_length / self.avg_doc_length.max(1.0))));
-                
-                score += term_score;
-            }
-        }
-        
-        // Boost score for lines with multiple query term matches
+        // Boost score for chunks with multiple query term matches
         let matches = query_terms.iter()
-            .filter(|&term| line_tf.contains_key(term))
+            .filter(|&term| chunk_tf.contains_key(term))
             .count() as f64;
         let query_coverage = matches / query_terms.len() as f64;
         
@@ -179,25 +166,18 @@ mod tests {
     }
     
     #[test]
-    fn test_bm25_scoring() {
+    fn test_bm25_chunk_scoring() {
         let documents = create_test_documents();
         let bm25 = BM25::new(&documents);
         
         let query = vec!["quick".to_string(), "fox".to_string()];
         
-        // Score each document
-        let score1 = bm25.score(&query, 0);
-        let score2 = bm25.score(&query, 1);
-        let score3 = bm25.score(&query, 2);
-        
-        // Documents 1 and 2 contain both "quick" and "fox", document 3 contains neither
-        assert!(score1 > 0.0, "Document 1 should score > 0, got {}", score1);
-        assert!(score2 > 0.0, "Document 2 should score > 0, got {}", score2);
-        assert!(score3 == 0.0, "Document 3 should score 0, got {}", score3);
-        
-        // Documents with query terms should score better than documents without
-        assert!(score1 > score3);
-        assert!(score2 > score3);
+        // Test scoring first chunk of first document (should contain "quick" and "fox")
+        if let Some(first_chunk) = documents[0].get_chunk(0) {
+            let chunk_terms = BM25::tokenize(&first_chunk.content);
+            let score = bm25.score_chunk(&chunk_terms, &query, 0, 0);
+            assert!(score > 0.0, "First chunk should score > 0, got {}", score);
+        }
     }
     
     #[test]

@@ -1,14 +1,34 @@
 # Greq = Grep + Query
 
-Greq is a CLI tool to search files and return relevant sections. It is different to `grep` in that it runs a simple linguistic analysis (BM25) on the text and ranks the file sections according to the importance regarding the query. It's like a mini search engine.
+Greq is a CLI tool to search files and return relevant sections. Greq is optimzied to provide contex to agents. It is different to `grep` in that it runs a simple linguistic analysis (BM25) on the text and ranks the file sections according to the importance regarding the query. It's like a mini search engine.
 
 Greq will work better for longer queries, for single keyword queries `grep` is a better option.
 
 ## 🚀 Installation
 
+### Quick Install (Recommended)
 
-Pre-built binaries are automatically created for every commit to master. Download the latest release from the [Releases page](https://github.com/klausschaefers/greq/releases):
+Install with a single command:
+```bash
+curl -sSL https://raw.githubusercontent.com/KlausSchaefers/greq/main/install.sh | bash
+```
 
+This script will:
+- ✅ Detect your platform automatically
+- ✅ Download the latest release
+- ✅ Install to `/usr/local/bin/`
+- ✅ Handle macOS security automatically
+- ✅ Make the binary executable
+
+### Manual Download
+
+Alternatively, download manually from the [Releases page](https://github.com/klausschaefers/greq/releases):
+
+- **Linux x86_64**: `greq` 
+- **Linux ARM64**: `greq`
+- **Windows**: `greq.exe`
+- **macOS Intel**: `greq`
+- **macOS Apple Silicon**: `greq`
 
 After downloading, make the binary executable (Linux/macOS):
 ```bash

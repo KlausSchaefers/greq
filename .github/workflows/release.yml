@@ -138,10 +138,12 @@ jobs:
           body: |
             Automated release of greq - Grep + Query search tool
             
-            ## Changes
-            Built from commit: ${{ github.sha }}
+            ## Quick Install
+            ```bash
+            curl -sSL https://raw.githubusercontent.com/KlausSchaefers/greq/main/install.sh | bash
+            ```
             
-            ## Downloads
+            ## Manual Downloads
             - **Linux x86_64**: `greq` 
             - **Linux ARM64**: `greq`
             - **Windows**: `greq.exe`

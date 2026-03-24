@@ -153,9 +153,14 @@ jobs:
             # Make executable (Linux/macOS)
             chmod +x greq
             
+            # macOS: Remove security quarantine if needed
+            xattr -d com.apple.quarantine greq
+            
             # Example usage
             ./greq "search term" /path/to/search --n 5 -m -l
             ```
+            
+            **Note for macOS users**: If you get "cannot be verified" error, run `xattr -d com.apple.quarantine greq` to remove the quarantine attribute.
           draft: false
           prerelease: false
 

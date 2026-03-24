@@ -16,6 +16,25 @@ After downloading, make the binary executable (Linux/macOS):
 chmod +x greq
 ```
 
+#### macOS Security Notice
+On macOS, you may see "cannot be verified" error. This is because the binary isn't signed with an Apple Developer certificate. To fix this:
+
+**Option 1: Remove quarantine attribute (Recommended)**
+```bash
+xattr -d com.apple.quarantine greq
+```
+
+**Option 2: Right-click method**
+1. Right-click the `greq` binary in Finder
+2. Select "Open" 
+3. Click "Open" in the security dialog
+
+**Option 3: System Settings**
+1. Try to run `./greq` (it will fail)
+2. Go to System Settings > Privacy & Security
+3. Click "Allow Anyway" next to the greq message
+4. Try running `./greq` again and confirm
+
 ### Build from Source
 
 **Debug**

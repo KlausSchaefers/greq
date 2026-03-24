@@ -84,55 +84,6 @@ jobs:
       - name: Build
         run: cargo build --release --target ${{ matrix.platform.target }}
 
-      - name: Sign macOS binary
-        if: matrix.platform.os == 'macos-latest'
-        env:
-          APPLE_CERTIFICATE: ${{ secrets.APPLE_CERTIFICATE }}
-          APPLE_CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-          APPLE_DEVELOPER_ID: ${{ secrets.APPLE_DEVELOPER_ID }}
-        run: |
-          # Import certificate
-          echo $APPLE_CERTIFICATE | base64 --decode > certificate.p12
-          security create-keychain -p "" build.keychain
-          security default-keychain -s build.keychain
-          security unlock-keychain -p "" build.keychain
-          security import certificate.p12 -k build.keychain -P $APPLE_CERTIFICATE_PASSWORD -T /usr/bin/codesign
-          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "" build.keychain
-          
-          # Sign the binary
-          codesign --force --sign "$APPLE_DEVELOPER_ID" \
-            --options runtime \
-            --timestamp \
-            target/${{ matrix.platform.target }}/release/${{ matrix.platform.bin }}
-          
-          # Verify signature
-          codesign --verify --verbose target/${{ matrix.platform.target }}/release/${{ matrix.platform.bin }}
-          
-          # Clean up
-          security delete-keychain build.keychain
-          rm certificate.p12
-
-      - name: Notarize macOS binary (Optional)
-        if: matrix.platform.os == 'macos-latest' && github.event_name != 'workflow_dispatch'
-        env:
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_APP_PASSWORD: ${{ secrets.APPLE_APP_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
-        run: |
-          # Create temporary ZIP for notarization
-          zip greq.zip target/${{ matrix.platform.target }}/release/${{ matrix.platform.bin }}
-          
-          # Submit for notarization
-          xcrun notarytool submit greq.zip \
-            --apple-id "$APPLE_ID" \
-            --password "$APPLE_APP_PASSWORD" \
-            --team-id "$APPLE_TEAM_ID" \
-            --wait
-            
-          # Clean up
-          rm greq.zip
-
       - name: Package binary  
         shell: bash
         run: |
@@ -220,7 +171,7 @@ jobs:
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
           asset_path: ./Linux x86_64/greq
-          asset_name: greq-linux-x86_64
+          asset_name: greq
           asset_content_type: application/octet-stream
 
       - name: Upload Linux ARM64
@@ -230,7 +181,7 @@ jobs:
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
           asset_path: ./Linux ARM64/greq
-          asset_name: greq-linux-arm64
+          asset_name: greq
           asset_content_type: application/octet-stream
 
       - name: Upload Windows
@@ -240,7 +191,7 @@ jobs:
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
           asset_path: ./Windows x86_64/greq.exe
-          asset_name: greq-windows.exe
+          asset_name: greq.exe
           asset_content_type: application/octet-stream
 
       - name: Upload macOS Intel
@@ -250,7 +201,7 @@ jobs:
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
           asset_path: ./macOS Intel/greq
-          asset_name: greq-macos-intel
+          asset_name: greq
           asset_content_type: application/octet-stream
 
       - name: Upload macOS ARM64
@@ -260,5 +211,5 @@ jobs:
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
           asset_path: ./macOS ARM64/greq
-          asset_name: greq-macos-arm64
+          asset_name: greq
           asset_content_type: application/octet-stream

@@ -16,11 +16,7 @@ chmod +x greq
 ```
 
 #### macOS Security Notice
-On macOS, you may see "cannot be verified" error if downloading unsigned binaries. This is because the binary isn't signed with an Apple Developer certificate. 
-
-**For signed releases** (when available): No additional steps needed - signed binaries will run directly.
-
-**For unsigned releases**, to fix the verification error:
+On macOS, you may see "cannot be verified" error. This is because the binary isn't signed with an Apple Developer certificate. 
 
 **Option 1: Remove quarantine attribute (Recommended)**
 ```bash

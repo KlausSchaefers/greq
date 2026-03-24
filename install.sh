@@ -67,23 +67,23 @@ detect_platform() {
     # Determine the asset name based on platform
     case "$OS-$ARCH" in
         linux-x86_64)
-            ASSET_NAME="greq"
+            ASSET_NAME="greq-linux-x86_64"
             PLATFORM_NAME="Linux x86_64"
             ;;
         linux-arm64)
-            ASSET_NAME="greq"
+            ASSET_NAME="greq-linux-arm64"
             PLATFORM_NAME="Linux ARM64"
             ;;
         macos-x86_64)
-            ASSET_NAME="greq"
+            ASSET_NAME="greq-macos-intel"
             PLATFORM_NAME="macOS Intel"
             ;;
         macos-arm64)
-            ASSET_NAME="greq"
+            ASSET_NAME="greq-macos-arm64"
             PLATFORM_NAME="macOS ARM64"
             ;;
         windows-x86_64)
-            ASSET_NAME="greq.exe"
+            ASSET_NAME="greq-windows-x86_64.exe"
             PLATFORM_NAME="Windows x86_64"
             BINARY_NAME="greq.exe"
             ;;

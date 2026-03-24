@@ -144,11 +144,11 @@ jobs:
             ```
             
             ## Manual Downloads
-            - **Linux x86_64**: `greq` 
-            - **Linux ARM64**: `greq`
-            - **Windows**: `greq.exe`
-            - **macOS Intel**: `greq`
-            - **macOS Apple Silicon**: `greq`
+            - **Linux x86_64**: `greq-linux-x86_64` 
+            - **Linux ARM64**: `greq-linux-arm64`
+            - **Windows**: `greq-windows-x86_64.exe`
+            - **macOS Intel**: `greq-macos-intel`
+            - **macOS Apple Silicon**: `greq-macos-arm64`
             
             ## Usage
             ```bash
@@ -173,7 +173,7 @@ jobs:
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
           asset_path: ./Linux x86_64/greq
-          asset_name: greq
+          asset_name: greq-linux-x86_64
           asset_content_type: application/octet-stream
 
       - name: Upload Linux ARM64
@@ -183,7 +183,7 @@ jobs:
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
           asset_path: ./Linux ARM64/greq
-          asset_name: greq
+          asset_name: greq-linux-arm64
           asset_content_type: application/octet-stream
 
       - name: Upload Windows
@@ -193,7 +193,7 @@ jobs:
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
           asset_path: ./Windows x86_64/greq.exe
-          asset_name: greq.exe
+          asset_name: greq-windows-x86_64.exe
           asset_content_type: application/octet-stream
 
       - name: Upload macOS Intel
@@ -203,7 +203,7 @@ jobs:
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
           asset_path: ./macOS Intel/greq
-          asset_name: greq
+          asset_name: greq-macos-intel
           asset_content_type: application/octet-stream
 
       - name: Upload macOS ARM64
@@ -213,5 +213,5 @@ jobs:
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
           asset_path: ./macOS ARM64/greq
-          asset_name: greq
+          asset_name: greq-macos-arm64
           asset_content_type: application/octet-stream

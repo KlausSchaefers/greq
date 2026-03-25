@@ -148,12 +148,12 @@ impl SubTokenizer {
     
     /// Generate overlapping sub-tokens from a single token
     fn generate_sub_tokens(&self, token: &str) -> Vec<String> {
-        if token.len() < self.sub_token_length {
+        let chars: Vec<char> = token.chars().collect();
+        if chars.len() < self.sub_token_length {
             return vec![token.to_string()];
         }
         
         let mut sub_tokens = Vec::new();
-        let chars: Vec<char> = token.chars().collect();
         
         for i in 0..=(chars.len().saturating_sub(self.sub_token_length)) {
             let sub_token: String = chars[i..i + self.sub_token_length].iter().collect();

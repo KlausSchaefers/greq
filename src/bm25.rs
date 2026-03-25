@@ -1,4 +1,4 @@
-use crate::{Document, Tokenizer};
+use crate::{Document, TokenizerTrait};
 use std::collections::HashMap;
 
 /// BM25 (Best Matching 25) ranking algorithm implementation
@@ -23,7 +23,7 @@ pub struct BM25 {
 
 impl BM25 {
     /// Create a new BM25 index from document chunks
-    pub fn new(documents: &[Document], tokenizer: &Tokenizer) -> Self {
+    pub fn new<T: TokenizerTrait + ?Sized>(documents: &[Document], tokenizer: &T) -> Self {
         let mut chunk_term_frequencies = Vec::new();
         let mut term_frequencies = HashMap::new();
         let mut chunk_lengths = Vec::new();
@@ -35,6 +35,7 @@ impl BM25 {
                 let terms = tokenizer.tokenize(&chunk.content);
                 let term_counts = tokenizer.count_terms(&terms);
                 
+                
                 chunk_lengths.push(terms.len());
                 total_length += terms.len();
                 chunk_mapping.push((doc_idx, chunk_idx));
@@ -42,6 +43,7 @@ impl BM25 {
                 // Update term frequencies (how many chunks contain each term)
                 for term in term_counts.keys() {
                     *term_frequencies.entry(term.clone()).or_insert(0) += 1;
+                   // println!("Term '{}' : {}", term, term_counts[term]);
                 }
                 
                 chunk_term_frequencies.push(term_counts);
@@ -82,6 +84,7 @@ impl BM25 {
         if global_chunk_idx >= self.chunk_term_frequencies.len() {
             return 0.0;
         }
+
         
         let chunk_tf = &self.chunk_term_frequencies[global_chunk_idx];
         let chunk_length = self.chunk_lengths[global_chunk_idx] as f64;

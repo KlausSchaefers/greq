@@ -51,6 +51,14 @@ greq "function" . --extensions "rs,py,js"
 
 # Different chunk sizes for better context
 greq "algorithms" . -s 300
+
+# Fuzzy matching with sub-tokens (great for partial words)
+greq "capo" docs/ --sub-token 4     # Finds "capoeira", "capon", etc.
+greq "config" . -t 5                # Short form: finds "configuration", "configure"
+
+# Regular vs fuzzy search comparison
+greq "capo" docs/                   # No matches (exact word search)
+greq "capo" docs/ -t 4              # Finds "capoeira" (fuzzy sub-token search)
 ```
 
 ### Options
@@ -65,8 +73,33 @@ greq "algorithms" . -s 300
   -f, --format <FORMAT>     Output format: text or json [default: text]
   -m, --show-meta           Show metadata (filename, score, position)
   -l, --highlight           Enable highlighting of search terms
+  -t, --sub-token <LENGTH>  Sub-token length for fuzzy matching (>3 enables fuzzy search) [default: 0]
   -h, --help                Print help
   -V, --version             Print version
+```
+
+### Fuzzy Search with Sub-tokens
+
+Greq supports fuzzy matching using overlapping sub-tokens. This is particularly useful when:
+- You remember only part of a word
+- Searching for compound words or technical terms
+- Dealing with typos or variations
+
+
+**Note**: This will be slower and use more memory. 
+
+**How it works:**
+- Words are split into overlapping sub-sequences of specified length
+- Example: "capoeira" with `--sub-token 4` becomes ["capo", "apoe", "poei", "oeir", "eira"]
+- Your search term "capo" will match because it appears as a sub-token
+
+**Usage:**
+```bash
+# Enable fuzzy search with 4-character sub-tokens
+greq "capo" docs/ --sub-token 4
+
+# Works with any sub-token length > 3
+greq "config" . -t 5    # Finds "configuration", "configure", etc.
 ```
 
 

@@ -10,7 +10,7 @@ use serde::{Serialize, Deserialize};
 // Re-export main types
 pub use search::{SearchEngine, SearchResult};
 pub use file_walker::FileWalker;
-pub use tokenizer::Tokenizer;
+pub use tokenizer::{Tokenizer, SubTokenizer, TokenizerTrait};
 
 /// A chunk of text from a document with position information
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -1,4 +1,4 @@
-use crate::{Document, bm25::BM25, Tokenizer};
+use crate::{Document, bm25::BM25, TokenizerTrait};
 use std::path::PathBuf;
 use serde::{Serialize, Deserialize};
 
@@ -16,12 +16,12 @@ pub struct SearchResult {
 pub struct SearchEngine {
     documents: Vec<Document>,
     bm25: BM25,
-    tokenizer: Tokenizer,
+    tokenizer: Box<dyn TokenizerTrait>,
 }
 
 impl SearchEngine {
-    pub fn new(documents: Vec<Document>, tokenizer: Tokenizer) -> Self {
-        let bm25 = BM25::new(&documents, &tokenizer);
+    pub fn new(documents: Vec<Document>, tokenizer: Box<dyn TokenizerTrait>) -> Self {
+        let bm25 = BM25::new(&documents, &*tokenizer);
         Self {
             documents,
             bm25,

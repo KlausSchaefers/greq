@@ -1,6 +1,6 @@
 use clap::Parser;
 use anyhow::Result;
-use greq::{SearchEngine, SearchResult, FileWalker, Tokenizer};
+use greq::{SearchEngine, SearchResult, FileWalker, Tokenizer, SubTokenizer, TokenizerTrait};
 use colored::*;
 use serde_json;
 use std::path::PathBuf;
@@ -44,6 +44,10 @@ struct Cli {
     /// Enable highlighting of search terms
     #[arg(short = 'l', long, default_value = "false")]
     highlight: bool,
+    
+    /// Sub-token length for fuzzy matching (use SubTokenizer if > 3)
+    #[arg(long = "sub-token", short = 't', default_value = "0")]
+    sub_token: usize,
 
     
 }
@@ -66,7 +70,7 @@ fn main() -> Result<()> {
     }
     
     // Create tokenizer and search engine
-    let tokenizer = Tokenizer::new();
+    let tokenizer = create_tokenizer(cli.sub_token);
     let search_engine = SearchEngine::new(documents, tokenizer);
     let results = search_engine.search(&cli.query, cli.n, cli.context);
     
@@ -148,5 +152,13 @@ fn highlight_query_in_text(content: &str, matched_word: &str) -> String {
     } else {
         // Fallback to simple replacement if word-based highlighting fails
         content.to_string()
+    }
+}
+
+fn create_tokenizer(sub_token: usize) -> Box<dyn TokenizerTrait> {
+    if sub_token > 3 {
+        Box::new(SubTokenizer::new(sub_token))
+    } else {
+        Box::new(Tokenizer::new())
     }
 }

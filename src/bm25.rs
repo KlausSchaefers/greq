@@ -1,4 +1,4 @@
-use crate::Document;
+use crate::{Document, Tokenizer};
 use std::collections::HashMap;
 
 /// BM25 (Best Matching 25) ranking algorithm implementation
@@ -23,7 +23,7 @@ pub struct BM25 {
 
 impl BM25 {
     /// Create a new BM25 index from document chunks
-    pub fn new(documents: &[Document]) -> Self {
+    pub fn new(documents: &[Document], tokenizer: &Tokenizer) -> Self {
         let mut chunk_term_frequencies = Vec::new();
         let mut term_frequencies = HashMap::new();
         let mut chunk_lengths = Vec::new();
@@ -32,8 +32,8 @@ impl BM25 {
         
         for (doc_idx, document) in documents.iter().enumerate() {
             for (chunk_idx, chunk) in document.chunks.iter().enumerate() {
-                let terms = Self::tokenize(&chunk.content);
-                let term_counts = Self::count_terms(&terms);
+                let terms = tokenizer.tokenize(&chunk.content);
+                let term_counts = tokenizer.count_terms(&terms);
                 
                 chunk_lengths.push(terms.len());
                 total_length += terms.len();
@@ -121,31 +121,13 @@ impl BM25 {
         score * (1.0 + query_coverage * 0.5)
     }
     
-    /// Tokenize text into terms
-    fn tokenize(text: &str) -> Vec<String> {
-        text.to_lowercase()
-            .split_whitespace()
-            .flat_map(|word| {
-                word.split(&[',', '.', ';', ':', '!', '?', '(', ')', '[', ']', '{', '}', '"', '\'', '-', '_'])
-            })
-            .filter(|token| !token.is_empty() && token.len() > 1)
-            .map(|token| token.to_string())
-            .collect()
-    }
-    
-    /// Count term frequencies in a list of terms
-    fn count_terms(terms: &[String]) -> HashMap<String, usize> {
-        let mut counts = HashMap::new();
-        for term in terms {
-            *counts.entry(term.clone()).or_insert(0) += 1;
-        }
-        counts
-    }
+
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::Tokenizer;
     use std::path::PathBuf;
 
     fn create_test_documents() -> Vec<Document> {
@@ -168,13 +150,15 @@ mod tests {
     #[test]
     fn test_bm25_chunk_scoring() {
         let documents = create_test_documents();
-        let bm25 = BM25::new(&documents);
+        let tokenizer = Tokenizer::new();
+        let bm25 = BM25::new(&documents, &tokenizer);
         
         let query = vec!["quick".to_string(), "fox".to_string()];
         
         // Test scoring first chunk of first document (should contain "quick" and "fox")
         if let Some(first_chunk) = documents[0].get_chunk(0) {
-            let chunk_terms = BM25::tokenize(&first_chunk.content);
+            let tokenizer = Tokenizer::new();
+            let chunk_terms = tokenizer.tokenize(&first_chunk.content);
             let score = bm25.score_chunk(&chunk_terms, &query, 0, 0);
             assert!(score > 0.0, "First chunk should score > 0, got {}", score);
         }
@@ -182,7 +166,8 @@ mod tests {
     
     #[test]
     fn test_tokenization() {
-        let terms = BM25::tokenize("Hello, world! This is a test.");
+        let tokenizer = Tokenizer::new();
+        let terms = tokenizer.tokenize("Hello, world! This is a test.");
         assert!(terms.contains(&"hello".to_string()));
         assert!(terms.contains(&"world".to_string()));
         assert!(terms.contains(&"this".to_string()));
@@ -192,8 +177,9 @@ mod tests {
     
     #[test]
     fn test_term_counting() {
+        let tokenizer = Tokenizer::new();
         let terms = vec!["hello".to_string(), "world".to_string(), "hello".to_string()];
-        let counts = BM25::count_terms(&terms);
+        let counts = tokenizer.count_terms(&terms);
         
         assert_eq!(counts.get("hello"), Some(&2));
         assert_eq!(counts.get("world"), Some(&1));

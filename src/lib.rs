@@ -2,6 +2,7 @@ pub mod search;
 pub mod file_walker;
 pub mod bm25;
 pub mod config;
+pub mod tokenizer;
 
 use std::path::PathBuf;
 use serde::{Serialize, Deserialize};
@@ -9,6 +10,7 @@ use serde::{Serialize, Deserialize};
 // Re-export main types
 pub use search::{SearchEngine, SearchResult};
 pub use file_walker::FileWalker;
+pub use tokenizer::Tokenizer;
 
 /// A chunk of text from a document with position information
 #[derive(Debug, Clone, Serialize, Deserialize)]

@@ -1,6 +1,6 @@
 use clap::Parser;
 use anyhow::Result;
-use greq::{SearchEngine, SearchResult, FileWalker};
+use greq::{SearchEngine, SearchResult, FileWalker, Tokenizer};
 use colored::*;
 use serde_json;
 use std::path::PathBuf;
@@ -65,8 +65,9 @@ fn main() -> Result<()> {
         return Ok(());
     }
     
-    // Create search engine and perform search
-    let search_engine = SearchEngine::new(documents);
+    // Create tokenizer and search engine
+    let tokenizer = Tokenizer::new();
+    let search_engine = SearchEngine::new(documents, tokenizer);
     let results = search_engine.search(&cli.query, cli.n, cli.context);
     
     if results.is_empty() {
@@ -101,14 +102,14 @@ fn display_text_results(results: &[SearchResult], cli: &Cli) {
         }
         
         if cli.show_meta {
-            // File header with score
+            // File header with score and position
             println!(
                 "{}:{}  {}",
                 result.file_path.to_string_lossy().blue().bold(),
                 result.start_pos,
                 format!("(score: {:.3})", result.score).dimmed()
             );
-        }
+        } 
         
         // Show content with or without highlighting
         if cli.highlight {

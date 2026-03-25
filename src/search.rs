@@ -1,4 +1,4 @@
-use crate::{Document, bm25::BM25};
+use crate::{Document, bm25::BM25, Tokenizer};
 use std::path::PathBuf;
 use serde::{Serialize, Deserialize};
 
@@ -16,21 +16,23 @@ pub struct SearchResult {
 pub struct SearchEngine {
     documents: Vec<Document>,
     bm25: BM25,
+    tokenizer: Tokenizer,
 }
 
 impl SearchEngine {
-    pub fn new(documents: Vec<Document>) -> Self {
-        let bm25 = BM25::new(&documents);
+    pub fn new(documents: Vec<Document>, tokenizer: Tokenizer) -> Self {
+        let bm25 = BM25::new(&documents, &tokenizer);
         Self {
             documents,
             bm25,
+            tokenizer,
         }
     }
     
     /// Search for a query and return ranked chunk results with context
     pub fn search(&self, query: &str, n: usize, context: usize) -> Vec<SearchResult> {
         // Always use lowercase for search
-        let query_terms = self.tokenize(&query.to_lowercase());
+        let query_terms = self.tokenizer.tokenize(&query.to_lowercase());
         if query_terms.is_empty() {
             return Vec::new();
         }
@@ -40,7 +42,7 @@ impl SearchEngine {
         
         for (doc_idx, document) in self.documents.iter().enumerate() {
             for (chunk_idx, chunk) in document.chunks.iter().enumerate() {
-                let chunk_terms = self.tokenize(&chunk.content.to_lowercase());
+                let chunk_terms = self.tokenizer.tokenize(&chunk.content.to_lowercase());
                 let score = self.bm25.score_chunk(&chunk_terms, &query_terms, doc_idx, chunk_idx);
                 
                 if score > 0.01 {
@@ -111,27 +113,17 @@ impl SearchEngine {
         None
     }
     
-    fn tokenize(&self, text: &str) -> Vec<String> {
-        // Always use lowercase for consistency
-        text.to_lowercase()
-            .split_whitespace()
-            .flat_map(|word| {
-                word.split(&[',', '.', ';', ':', '!', '?', '(', ')', '[', ']', '{', '}', '"', '\''])
-            })
-            .filter(|token| !token.is_empty() && token.len() > 1)
-            .map(|token| token.to_string())
-            .collect()
-    }
+
 }
 
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use crate::Tokenizer;
 
     #[test]
     fn test_tokenize() {
-        let engine = SearchEngine::new(vec![]);
-        let tokens = engine.tokenize("Hello, world! This is a test.");
+        let tokenizer = Tokenizer::new();
+        let tokens = tokenizer.tokenize("Hello, world! This is a test.");
         assert!(tokens.contains(&"hello".to_string()));
         assert!(tokens.contains(&"world".to_string()));
         assert!(tokens.contains(&"this".to_string()));

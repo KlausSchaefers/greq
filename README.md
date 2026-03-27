@@ -174,3 +174,8 @@ cargo build --release
 ```bash
 greq "search query" [path] [options]
 ```
+
+
+# Thanks
+
+We use the [fastembed-rs](https://github.com/Anush008/fastembed-rs) lib from Anush008. Please give him a star!

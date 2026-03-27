@@ -49,14 +49,15 @@ impl SearchEngine {
         // Score each chunk using BM25
         let bm25_chunk_results = self.bm25.search(&self.documents, query, 0.001);
         let mut combined_results = Vec::new();
+        
         if self.embedding_weight > 0.0 {
             if let Some(embeddings) = &self.embeddings {
                 let embedding_chunk_results = embeddings.search(&self.documents, query, 0.001);
-                // Combine BM25 and embedding scores
-                for (doc_idx, chunk_idx, bm25_score) in bm25_chunk_results {
-                    let embedding_score = embedding_chunk_results.iter()
-                        .find(|&&(d_idx, c_idx, _)| d_idx == doc_idx && c_idx == chunk_idx)
-                        .map(|&(_, _, score)| score)
+                
+                // Combine BM25 and embedding scores using efficient HashMap lookup
+                for ((doc_idx, chunk_idx), bm25_score) in bm25_chunk_results {
+                    let embedding_score = embedding_chunk_results.get(&(doc_idx, chunk_idx))
+                        .copied()
                         .unwrap_or(0.0);
                     
                     let combined_score = (1.0 - self.embedding_weight) * bm25_score + self.embedding_weight * embedding_score;
@@ -64,7 +65,10 @@ impl SearchEngine {
                 }
             }
         } else {
-            combined_results = bm25_chunk_results;
+            // Convert HashMap to Vec when no embeddings are used
+            combined_results = bm25_chunk_results.into_iter()
+                .map(|((doc_idx, chunk_idx), score)| (doc_idx, chunk_idx, score))
+                .collect();
         }
         
         // Sort by score (highest first)

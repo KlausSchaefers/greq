@@ -10,12 +10,10 @@ pub struct BM25 {
     term_frequencies: HashMap<String, usize>,
     /// Average chunk length
     avg_chunk_length: f64,
-    /// Chunk lengths
-    chunk_lengths: Vec<usize>,
     /// Total number of chunks
     num_chunks: usize,
-    /// Mapping from chunk index to (doc_index, chunk_index_in_doc)
-    chunk_mapping: Vec<(usize, usize)>,
+    /// Mapping from (doc_index, chunk_index_in_doc) to global chunk index
+    chunk_mapping: HashMap<(usize, usize), usize>,
     /// Tokenizer used for text processing
     tokenizer: Box<dyn TokenizerTrait>,
     /// BM25 parameters
@@ -28,9 +26,9 @@ impl BM25 {
     pub fn new(documents: &[Document], tokenizer: Box<dyn TokenizerTrait>) -> Self {
         let mut chunk_term_frequencies = Vec::new();
         let mut term_frequencies = HashMap::new();
-        let mut chunk_lengths = Vec::new();
-        let mut chunk_mapping = Vec::new();
+        let mut chunk_mapping = HashMap::new();
         let mut total_length = 0;
+        let mut global_chunk_idx = 0;
         
         for (doc_idx, document) in documents.iter().enumerate() {
             for (chunk_idx, chunk) in document.chunks.iter().enumerate() {
@@ -38,9 +36,9 @@ impl BM25 {
                 let term_counts = tokenizer.count_terms(&terms);
                 
                 
-                chunk_lengths.push(terms.len());
                 total_length += terms.len();
-                chunk_mapping.push((doc_idx, chunk_idx));
+                chunk_mapping.insert((doc_idx, chunk_idx), global_chunk_idx);
+                global_chunk_idx += 1;
                 
                 // Update term frequencies (how many chunks contain each term)
                 for term in term_counts.keys() {
@@ -64,7 +62,6 @@ impl BM25 {
             chunk_term_frequencies,
             term_frequencies,
             avg_chunk_length,
-            chunk_lengths,
             num_chunks,
             chunk_mapping,
             tokenizer,
@@ -74,26 +71,26 @@ impl BM25 {
     }
     
         /// Search for chunks matching the query using BM25 scoring
+    /// Returns a HashMap where key is (doc_idx, chunk_idx) and value is score
     pub fn search(
         &self, 
         documents: &[Document], 
         query: &str, 
         min_score: f64
-    ) -> Vec<(usize, usize, f64)> {
+    ) -> HashMap<(usize, usize), f64> {
         // Tokenize the query
         let query_terms = self.tokenizer.tokenize(&query.to_lowercase());
         if query_terms.is_empty() {
-            return Vec::new();
+            return HashMap::new();
         }
         
-        let mut chunk_results = Vec::new();
+        let mut chunk_results = HashMap::new();
         
         for (doc_idx, document) in documents.iter().enumerate() {
             for (chunk_idx, chunk) in document.chunks.iter().enumerate() {
-                let chunk_terms = self.tokenizer.tokenize(&chunk.content.to_lowercase());
-                let score = self.score_chunk(&chunk_terms, &query_terms, doc_idx, chunk_idx);            
+                let score = self.score_chunk(chunk, &query_terms, doc_idx, chunk_idx);            
                 if score > min_score {
-                    chunk_results.push((doc_idx, chunk_idx, score));
+                    chunk_results.insert((doc_idx, chunk_idx), score);
                 }
             }
         }
@@ -101,13 +98,14 @@ impl BM25 {
     }
 
     /// Score a chunk against a query using BM25
-    fn score_chunk(&self, _chunk_terms: &[String], query_terms: &[String], doc_index: usize, chunk_index: usize) -> f64 {
-        // Find the global chunk index
-        let global_chunk_idx = self.chunk_mapping.iter()
-            .position(|&(d_idx, c_idx)| d_idx == doc_index && c_idx == chunk_index);
-            
-        let global_chunk_idx = match global_chunk_idx {
-            Some(idx) => idx,
+    fn score_chunk(&self, chunk: &crate::Chunk, query_terms: &[String], doc_index: usize, chunk_index: usize) -> f64 {
+        // Tokenize the chunk content
+        let chunk_terms = self.tokenizer.tokenize(&chunk.content.to_lowercase());
+        let chunk_term_counts = self.tokenizer.count_terms(&chunk_terms);
+        
+        // Find the global chunk index using HashMap lookup
+        let global_chunk_idx = match self.chunk_mapping.get(&(doc_index, chunk_index)) {
+            Some(&idx) => idx,
             None => return 0.0,
         };
         
@@ -116,8 +114,7 @@ impl BM25 {
         }
 
         
-        let chunk_tf = &self.chunk_term_frequencies[global_chunk_idx];
-        let chunk_length = self.chunk_lengths[global_chunk_idx] as f64;
+        let chunk_length = chunk_terms.len() as f64;
         
         if chunk_length == 0.0 {
             return 0.0;
@@ -126,7 +123,7 @@ impl BM25 {
         let mut score = 0.0;
         
         for term in query_terms {
-            if let Some(&tf) = chunk_tf.get(term) {
+            if let Some(&tf) = chunk_term_counts.get(term) {
                 let tf = tf as f64;
                 let df = self.term_frequencies.get(term).unwrap_or(&0);
                 
@@ -147,7 +144,7 @@ impl BM25 {
         
         // Boost score for chunks with multiple query term matches
         let matches = query_terms.iter()
-            .filter(|&term| chunk_tf.contains_key(term))
+            .filter(|&term| chunk_term_counts.contains_key(term))
             .count();
         
         if matches > 1 {
@@ -193,11 +190,30 @@ mod tests {
         
         // Test scoring first chunk of first document (should contain "quick" and "fox")
         if let Some(first_chunk) = documents[0].get_chunk(0) {
-            let tokenizer = Tokenizer::new();
-            let chunk_terms = tokenizer.tokenize(&first_chunk.content);
-            let score = bm25.score_chunk(&chunk_terms, &query, 0, 0);
+            let score = bm25.score_chunk(&first_chunk, &query, 0, 0);
             assert!(score > 0.0, "First chunk should score > 0, got {}", score);
         }
+    }
+    
+    #[test]
+    fn test_bm25_search_hashmap() {
+        let documents = create_test_documents();
+        let tokenizer = Box::new(Tokenizer::new()) as Box<dyn TokenizerTrait>;
+        let bm25 = BM25::new(&documents, tokenizer);
+        
+        let results = bm25.search(&documents, "quick fox", 0.0);
+        
+        // Should return HashMap with chunk results
+        assert!(!results.is_empty(), "Search should return results for 'quick fox'");
+        
+        // Check that we get results for documents that contain the query terms
+        assert!(results.contains_key(&(0, 0)), "Should find match in first document");
+        assert!(results.contains_key(&(1, 0)), "Should find match in second document");
+        
+        // Higher scores should be for chunks containing both terms
+        let score_doc0 = results.get(&(0, 0)).unwrap();
+        let score_doc1 = results.get(&(1, 0)).unwrap();
+        assert!(*score_doc0 > 0.0 && *score_doc1 > 0.0, "Both documents should have positive scores");
     }
     
     #[test]

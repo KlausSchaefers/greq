@@ -2,6 +2,7 @@
 use crate::{Document};
 use fastembed::{TextEmbedding, InitOptions, EmbeddingModel};
 use std::cell::RefCell;
+use std::collections::HashMap;
 
 pub struct Embeddings {
     /// Term frequencies for each chunk across all documents
@@ -96,18 +97,19 @@ impl Embeddings {
     }
     
     /// Search for chunks matching the query using cosine similarity
+    /// Returns a HashMap where key is (doc_idx, chunk_idx) and value is score
     pub fn search(
         &self, 
         documents: &[Document], 
         query: &str, 
         min_score: f64
-    ) -> Vec<(usize, usize, f64)> {
+    ) -> HashMap<(usize, usize), f64> {
         // Check if model is available
         let model_cell = match &self.model {
             Some(model_cell) => model_cell,
             None => {
                 eprintln!("No embedding model available for search");
-                return Vec::new();
+                return HashMap::new();
             }
         };
         
@@ -117,17 +119,17 @@ impl Embeddings {
             Ok(mut embeddings) => {
                 if embeddings.is_empty() {
                     eprintln!("Failed to generate query embedding");
-                    return Vec::new();
+                    return HashMap::new();
                 }
                 embeddings.remove(0)
             }
             Err(e) => {
                 eprintln!("Error generating query embedding: {}", e);
-                return Vec::new();
+                return HashMap::new();
             }
         };
         
-        let mut results = Vec::new();
+        let mut results = HashMap::new();
         let mut chunk_idx = 0;
         
         // Iterate through documents and chunks to compute similarities
@@ -138,7 +140,7 @@ impl Embeddings {
                     let similarity = self.cosine_similarity(&query_embedding, chunk_embedding);
                     
                     if similarity >= min_score {
-                        results.push((doc_idx, doc_chunk_idx, similarity));
+                        results.insert((doc_idx, doc_chunk_idx), similarity);
                     }
                     
                     chunk_idx += 1;

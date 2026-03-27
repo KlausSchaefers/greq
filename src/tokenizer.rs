@@ -4,6 +4,7 @@ use std::collections::HashMap;
 pub trait TokenizerTrait {
     fn tokenize(&self, text: &str) -> Vec<String>;
     fn count_terms(&self, terms: &[String]) -> HashMap<String, usize>;
+    fn clone_tokenizer(&self) -> Box<dyn TokenizerTrait>;
 }
 
 /// Text tokenizer for search operations
@@ -48,6 +49,10 @@ impl TokenizerTrait for Tokenizer {
         }
         counts
     }
+    
+    fn clone_tokenizer(&self) -> Box<dyn TokenizerTrait> {
+        Box::new(self.clone())
+    }
 }
 
 impl Tokenizer {
@@ -58,14 +63,6 @@ impl Tokenizer {
                 ',', '.', ';', ':', '!', '?', '(', ')', '[', ']', 
                 '{', '}', '"', '\'', '-', '_'
             ],
-            min_token_length: 2,
-        }
-    }
-    
-    /// Create a new tokenizer with custom split characters
-    pub fn with_split_chars(split_chars: Vec<char>) -> Self {
-        Self {
-            split_chars,
             min_token_length: 2,
         }
     }
@@ -81,21 +78,12 @@ impl Tokenizer {
         }
     }
     
-    /// Tokenize text into terms
-    pub fn tokenize(&self, text: &str) -> Vec<String> {
-        text.to_lowercase()
-            .split_whitespace()
-            .flat_map(|word| {
-                word.split(&self.split_chars[..])
-            })
-            .filter(|token| !token.is_empty() && token.len() >= self.min_token_length)
-            .map(|token| token.to_string())
-            .collect()
-    }
-    
-    /// Count term frequencies in a list of terms
-    pub fn count_terms(&self, terms: &[String]) -> HashMap<String, usize> {
-        <Self as TokenizerTrait>::count_terms(self, terms)
+    /// Create a new tokenizer with custom split characters
+    pub fn with_split_chars(split_chars: Vec<char>) -> Self {
+        Self {
+            split_chars,
+            min_token_length: 2,
+        }
     }
 }
 
@@ -125,6 +113,10 @@ impl TokenizerTrait for SubTokenizer {
             *counts.entry(term.clone()).or_insert(0) += 1;
         }
         counts
+    }
+    
+    fn clone_tokenizer(&self) -> Box<dyn TokenizerTrait> {
+        Box::new(self.clone())
     }
 }
 

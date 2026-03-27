@@ -29,3 +29,5 @@ Thumbs.db
 
 # Backup files
 *~
+
+.fastembed_cache

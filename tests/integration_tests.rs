@@ -23,6 +23,7 @@ fn test_search_with_query() -> Result<(), Box<dyn std::error::Error>> {
 
     let mut cmd = Command::cargo_bin("greq")?;
     cmd.arg("Hello")
+        .arg("--show-meta")
         .arg(temp_dir.path());
     
     cmd.assert()
@@ -48,13 +49,14 @@ fn test_file_extensions_filter() -> Result<(), Box<dyn std::error::Error>> {
     let rust_file = temp_dir.path().join("test.rs");
     let text_file = temp_dir.path().join("test.txt");
     
-    fs::write(&rust_file, "fn main() { println!(\"Hello\"); }")?;
+    fs::write(&rust_file, "Hello main function")?;
     fs::write(&text_file, "Hello world")?;
 
     let mut cmd = Command::cargo_bin("greq")?;
     cmd.arg("Hello")
         .arg("--extensions")
         .arg("rs")
+        .arg("--show-meta")
         .arg(temp_dir.path());
     
     cmd.assert()

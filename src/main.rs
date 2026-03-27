@@ -49,6 +49,9 @@ struct Cli {
     #[arg(long = "sub-token", short = 't', default_value = "0")]
     sub_token: usize,
 
+    /// Embedding weight for combining BM25 and embedding scores
+    #[arg(long = "embedding-weight", short = 'w', default_value = "0")]
+    embedding_weight: f64,
     
 }
 
@@ -71,7 +74,7 @@ fn main() -> Result<()> {
     
     // Create tokenizer and search engine
     let tokenizer = create_tokenizer(cli.sub_token);
-    let search_engine = SearchEngine::new(documents, tokenizer);
+    let search_engine = SearchEngine::new(documents, tokenizer, cli.embedding_weight);
     let results = search_engine.search(&cli.query, cli.n, cli.context);
     
     if results.is_empty() {

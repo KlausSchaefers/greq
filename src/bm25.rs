@@ -16,6 +16,8 @@ pub struct BM25 {
     num_chunks: usize,
     /// Mapping from chunk index to (doc_index, chunk_index_in_doc)
     chunk_mapping: Vec<(usize, usize)>,
+    /// Tokenizer used for text processing
+    tokenizer: Box<dyn TokenizerTrait>,
     /// BM25 parameters
     k1: f64,
     b: f64,
@@ -23,7 +25,7 @@ pub struct BM25 {
 
 impl BM25 {
     /// Create a new BM25 index from document chunks
-    pub fn new<T: TokenizerTrait + ?Sized>(documents: &[Document], tokenizer: &T) -> Self {
+    pub fn new(documents: &[Document], tokenizer: Box<dyn TokenizerTrait>) -> Self {
         let mut chunk_term_frequencies = Vec::new();
         let mut term_frequencies = HashMap::new();
         let mut chunk_lengths = Vec::new();
@@ -65,13 +67,41 @@ impl BM25 {
             chunk_lengths,
             num_chunks,
             chunk_mapping,
+            tokenizer,
             k1: 1.5, // Term frequency saturation parameter
             b: 0.75, // Length normalization parameter
         }
     }
     
+        /// Search for chunks matching the query using BM25 scoring
+    pub fn search(
+        &self, 
+        documents: &[Document], 
+        query: &str, 
+        min_score: f64
+    ) -> Vec<(usize, usize, f64)> {
+        // Tokenize the query
+        let query_terms = self.tokenizer.tokenize(&query.to_lowercase());
+        if query_terms.is_empty() {
+            return Vec::new();
+        }
+        
+        let mut chunk_results = Vec::new();
+        
+        for (doc_idx, document) in documents.iter().enumerate() {
+            for (chunk_idx, chunk) in document.chunks.iter().enumerate() {
+                let chunk_terms = self.tokenizer.tokenize(&chunk.content.to_lowercase());
+                let score = self.score_chunk(&chunk_terms, &query_terms, doc_idx, chunk_idx);            
+                if score > min_score {
+                    chunk_results.push((doc_idx, chunk_idx, score));
+                }
+            }
+        }
+        chunk_results
+    }
+
     /// Score a chunk against a query using BM25
-    pub fn score_chunk(&self, _chunk_terms: &[String], query_terms: &[String], doc_index: usize, chunk_index: usize) -> f64 {
+    fn score_chunk(&self, _chunk_terms: &[String], query_terms: &[String], doc_index: usize, chunk_index: usize) -> f64 {
         // Find the global chunk index
         let global_chunk_idx = self.chunk_mapping.iter()
             .position(|&(d_idx, c_idx)| d_idx == doc_index && c_idx == chunk_index);
@@ -118,10 +148,13 @@ impl BM25 {
         // Boost score for chunks with multiple query term matches
         let matches = query_terms.iter()
             .filter(|&term| chunk_tf.contains_key(term))
-            .count() as f64;
-        let query_coverage = matches / query_terms.len() as f64;
+            .count();
         
-        score * (1.0 + query_coverage * 0.5)
+        if matches > 1 {
+            score *= 1.0 + (matches as f64 - 1.0) * 0.2; // 20% boost per additional term
+        }
+        
+        score
     }
     
 
@@ -153,8 +186,8 @@ mod tests {
     #[test]
     fn test_bm25_chunk_scoring() {
         let documents = create_test_documents();
-        let tokenizer = Tokenizer::new();
-        let bm25 = BM25::new(&documents, &tokenizer);
+        let tokenizer = Box::new(Tokenizer::new()) as Box<dyn TokenizerTrait>;
+        let bm25 = BM25::new(&documents, tokenizer);
         
         let query = vec!["quick".to_string(), "fox".to_string()];
         

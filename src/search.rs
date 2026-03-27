@@ -53,12 +53,15 @@ impl SearchEngine {
         if self.embedding_weight > 0.0 {
             if let Some(embeddings) = &self.embeddings {
                 let embedding_chunk_results = embeddings.search(&self.documents, query, 0.001);
+                print!("DEBUG: BM25 found {} chunks, Embeddings found {} chunks", bm25_chunk_results.len(), embedding_chunk_results.len());
                 
                 // Combine BM25 and embedding scores using efficient HashMap lookup
-                for ((doc_idx, chunk_idx), bm25_score) in bm25_chunk_results {
-                    let embedding_score = embedding_chunk_results.get(&(doc_idx, chunk_idx))
+                for ((doc_idx, chunk_idx), embedding_score) in embedding_chunk_results {
+                    let bm25_score = bm25_chunk_results.get(&(doc_idx, chunk_idx))
                         .copied()
                         .unwrap_or(0.0);
+
+                    //println!("DEBUG: Doc {} Chunk {} BM25 score: {:.4}, Embedding score: {:.4}", doc_idx, chunk_idx, bm25_score, embedding_score);
                     
                     let combined_score = (1.0 - self.embedding_weight) * bm25_score + self.embedding_weight * embedding_score;
                     combined_results.push((doc_idx, chunk_idx, combined_score));

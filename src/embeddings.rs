@@ -28,17 +28,17 @@ impl Embeddings {
 
         // Extract text content from the actual documents for embedding
         let mut text_chunks = Vec::new();
-        for (doc_idx, document) in documents.iter().enumerate() {
-            for (chunk_idx, chunk) in document.chunks.iter().enumerate() {
-                println!("Document {} Chunk {}: {}", doc_idx, chunk_idx, chunk.content);
-                text_chunks.push(format!("passage: {}", chunk.content));
+        for (_doc_idx, document) in documents.iter().enumerate() {
+            for (_chunk_idx, chunk) in document.chunks.iter().enumerate() {
+                //println!("Document {} Chunk {}: {}", doc_idx, chunk_idx, chunk.content);
+                text_chunks.push(chunk.content.clone());
             }
         }
 
         // Generate embeddings with error handling (like try-catch)
         let chunk_embeddings = match model.embed(text_chunks, None) {
             Ok(embeddings) => {
-                println!("Successfully generated {} embeddings", embeddings.len());
+                //println!("Successfully generated {} embeddings", embeddings.len());
                 embeddings // Return embeddings from the Ok branch
             }
             Err(e) => {
@@ -138,6 +138,7 @@ impl Embeddings {
                 if chunk_idx < self.chunk_embeddings.len() {
                     let chunk_embedding = &self.chunk_embeddings[chunk_idx];
                     let similarity = self.cosine_similarity(&query_embedding, chunk_embedding);
+                    //println!("DEBUG: Doc {} Chunk {} similarity: {:.4}", doc_idx, doc_chunk_idx, similarity);
                     
                     if similarity >= min_score {
                         results.insert((doc_idx, doc_chunk_idx), similarity);

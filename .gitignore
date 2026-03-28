@@ -16,9 +16,6 @@ Thumbs.db
 # Logs
 *.log
 
-# Environment
-.env
-.env.local
 
 # Build artifacts
 /debug/
@@ -31,3 +28,4 @@ Thumbs.db
 *~
 
 .fastembed_cache
+.greq-cache

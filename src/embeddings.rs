@@ -3,6 +3,8 @@ use crate::{Document};
 use fastembed::{TextEmbedding, InitOptions, EmbeddingModel};
 use std::cell::RefCell;
 use std::collections::HashMap;
+use std::path::PathBuf;
+use std::env;
 
 pub struct Embeddings {
     /// Term frequencies for each chunk across all documents
@@ -11,10 +13,33 @@ pub struct Embeddings {
 }
 
 impl Embeddings {
-    pub fn new(documents: &[Document]) -> Self {
+    /// Get the default cache directory, cross-platform
+    fn default_cache_dir() -> PathBuf {
+        if let Some(home_dir) = dirs::home_dir() {
+            home_dir.join(".greq-cache")
+        } else {
+            // Fallback if home directory can't be determined
+            PathBuf::from(".greq-cache")
+        }
+    }
+
+    fn get_cache_dir() -> PathBuf {
+        dotenv::dotenv().ok();
+        
         // Handle model creation with error handling (like try-catch)
+        let cache_dir = env::var("GREQ_CACHE_DIR")
+            .map(PathBuf::from)
+            .unwrap_or_else(|_| Self::default_cache_dir());
+        
+        return cache_dir;
+    }
+
+    pub fn new(documents: &[Document]) -> Self {
+        // Load environment variables from .env file (needed for tests)
+
+
         let mut model = match TextEmbedding::try_new(
-            InitOptions::new(EmbeddingModel::AllMiniLML6V2).with_show_download_progress(true),
+            InitOptions::new(EmbeddingModel::AllMiniLML6V2).with_cache_dir(Self::get_cache_dir()),
         ) {
             Ok(model) => model,
             Err(e) => {
@@ -182,8 +207,7 @@ mod tests {
     #[test]
     fn test_embeddings() {
         let documents = create_test_documents();
-        println!("Documents: {:?}", documents);
-
+       
         let embeddings = Embeddings::new(&documents);
         
         // Test the new optional model functionality

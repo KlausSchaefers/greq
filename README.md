@@ -2,7 +2,7 @@
 
 Greq is a CLI tool that searches files and returns the most relevant sections. It’s designed to provide concise, high-signal context for AI agents, helping reduce token usage while preserving the information that matters.
 
-Unlike grep, which performs exact pattern matching, Greq applies lightweight linguistic ranking (BM25) to score and sort file sections based on how relevant they are to your query. In practice, it behaves like a small search engine in your shell.
+Unlike grep, which performs exact pattern matching, Greq applies linguistic ranking ([BM25](https://en.wikipedia.org/wiki/Okapi_BM25) & [Text Embeddings](https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2)) to score and sort file sections based on how relevant they are to your query. In practice, it behaves like a small search engine in your shell.
 
 Greq works best with natural-language or multi-word queries. For simple single-keyword searches, grep is usually the faster and more appropriate tool.
 
@@ -20,6 +20,7 @@ Greq uses the BM25 (Best Matching 25) ranking algorithm to score text relevance:
 
 1. **Document Chunking**: Files are split into overlapping chunks for better context
 2. **BM25 Scoring**: Each chunk is scored based on term frequency and document frequency
+3. **Semantic Scoring**: Each chunk is transformed with a local LLM into a semantic embedding vector
 3. **Context Expansion**: Results include surrounding chunks for better context
 4. **Ranking**: Results are sorted by relevance score
 
@@ -38,10 +39,12 @@ Use `grep` for:
 ## Examples
 ```bash
 # Basic search with metadata and highlighting
-greq "machine learning" docs/ -m -l
+greq "machine learning" test/data -m -l
 
-# Search with top 5 results and context
+# Search with top 5 results and larger context
 greq "rust programming" . --n 5 -C 2
+
+greq "south america" test/data -w 0.7  # Uses text embeddings to match "south america to brazil"
 
 # JSON output for scripting
 greq "error handling" src/ -f json
@@ -53,12 +56,16 @@ greq "function" . --extensions "rs,py,js"
 greq "algorithms" . -s 300
 
 # Fuzzy matching with sub-tokens (great for partial words)
-greq "capo" docs/ --sub-token 4     # Finds "capoeira", "capon", etc.
+greq "capo" test/data --sub-token 4     # Finds "capoeira", "capon", etc.
 greq "config" . -t 5                # Short form: finds "configuration", "configure"
 
 # Regular vs fuzzy search comparison
-greq "capo" docs/                   # No matches (exact word search)
-greq "capo" docs/ -t 4              # Finds "capoeira" (fuzzy sub-token search)
+greq "capo" test/data                   # No matches (exact word search)
+greq "capo" test/data -t 4              # Finds "capoeira" (fuzzy sub-token search)
+
+# Pipe command output  
+echo "some text content" | greq 'text'
+cat file.txt | greq 'my query'
 ```
 
 ### Options
@@ -74,6 +81,7 @@ greq "capo" docs/ -t 4              # Finds "capoeira" (fuzzy sub-token search)
   -m, --show-meta           Show metadata (filename, score, position)
   -l, --highlight           Enable highlighting of search terms
   -t, --sub-token <LENGTH>  Sub-token length for fuzzy matching (>3 enables fuzzy search) [default: 0]
+  -w, --embedding-weight <WEIGHT>  Weight for combining BM25 and embedding scores (0.0-1.0) [default: 0]
   -h, --help                Print help
   -V, --version             Print version
 ```
@@ -96,11 +104,47 @@ Greq supports fuzzy matching using overlapping sub-tokens. This is particularly 
 **Usage:**
 ```bash
 # Enable fuzzy search with 4-character sub-tokens
-greq "capo" docs/ --sub-token 4
+greq "capo" test/data --sub-token 4
 
 # Works with any sub-token length > 3
 greq "config" . -t 5    # Finds "configuration", "configure", etc.
 ```
+
+
+### Hybrid Search (BM25 + Embeddings)
+
+Greq supports hybrid search that combines traditional BM25 text ranking with semantic embeddings for enhanced search quality. This is particularly powerful for finding conceptually related content beyond exact keyword matches. Greq uses the [all-MiniLM-L6-v2](https://huggingface.co/sentence-transformers/all-MiniLM-L6-v2) model.
+
+**How it works:**
+- BM25 handles exact term matching and statistical relevance
+- Embeddings capture semantic similarity and context
+- Results are combined using a weighted average
+
+**Usage:**
+```bash
+# Enable hybrid search with 50% embedding weight
+greq "machine learning algorithms" test/data --embedding-weight 0.5
+
+# Heavier emphasis on semantic similarity
+greq "error handling" src/ -w 0.8
+
+# Light semantic enhancement (mostly BM25)
+greq "rust programming" . -w 0.2
+```
+
+**Weight values:**
+- `0.0` (default): Pure BM25 search
+- `0.5`: Balanced hybrid (50% BM25, 50% embeddings) 
+- `1.0`: Pure embedding search
+
+**When to use hybrid search:**
+- ✅ Conceptual or semantic queries
+- ✅ Finding related content beyond exact matches
+- ✅ Research and exploratory search
+- ❌ Simple keyword searches (BM25 alone is faster)
+
+**Note**: Hybrid search requires downloading embedding models on first use and is slower than BM25-only search. The files will be downloaded in your user directory in the `.greq-cache` folder. You can 
+change this behavior by setting the `GREQ_CACHE_DIR` ENV variable.
 
 
 
@@ -169,11 +213,6 @@ cargo build
 cargo build --release
 ```
 
-
-## Usage
-```bash
-greq "search query" [path] [options]
-```
 
 
 # Thanks

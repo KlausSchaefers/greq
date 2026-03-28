@@ -1,9 +1,10 @@
 use clap::Parser;
 use anyhow::Result;
-use greq::{SearchEngine, SearchResult, FileWalker, Tokenizer, SubTokenizer, TokenizerTrait};
+use greq::{SearchEngine, SearchResult, FileWalker, Tokenizer, SubTokenizer, TokenizerTrait, Document};
 use colored::*;
 use serde_json;
 use std::path::PathBuf;
+use std::io::{self, IsTerminal, Read};
 
 #[derive(Parser)]
 #[command(name = "greq")]
@@ -63,9 +64,8 @@ fn main() -> Result<()> {
         ext_str.split(',').map(|s| s.trim().to_string()).collect()
     });
     
-    // Walk files and collect content
-    let file_walker = FileWalker::new(cli.path.clone(), extensions);
-    let documents = file_walker.collect_documents()?;
+    // Get documents from either stdin or file walker
+    let documents = get_documents(cli.path.clone(), extensions, cli.chunk_size)?;
     
     if documents.is_empty() {
         println!("No files found to search");
@@ -94,6 +94,35 @@ fn main() -> Result<()> {
     }
     
     Ok(())
+}
+
+fn get_documents(
+    path: PathBuf,
+    extensions: Option<Vec<String>>,
+    chunk_size: usize,
+) -> Result<Vec<Document>> {
+    // Check if we should read from stdin (piped input)
+    if !io::stdin().is_terminal() {
+        // Read from stdin
+        let mut buffer = String::new();
+        io::stdin().read_to_string(&mut buffer)?;
+        
+        if buffer.trim().is_empty() {
+            eprintln!("No input provided via stdin");
+            return Ok(Vec::new());
+        }
+        
+        // Create a document from stdin content
+        Ok(vec![Document::new_with_chunk_size(
+            PathBuf::from("<stdin>"),
+            buffer,
+            chunk_size
+        )])
+    } else {
+        // Walk files and collect content
+        let file_walker = FileWalker::new_with_chunk_size(path, extensions, chunk_size);
+        file_walker.collect_documents()
+    }
 }
 
 fn display_json_results(results: &[SearchResult]) -> Result<()> {

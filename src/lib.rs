@@ -4,6 +4,7 @@ pub mod bm25;
 pub mod config;
 pub mod tokenizer;
 pub mod embeddings;
+pub mod parser;
 
 use std::path::PathBuf;
 use serde::{Serialize, Deserialize};
@@ -13,6 +14,7 @@ pub use search::{SearchEngine, SearchResult};
 pub use file_walker::FileWalker;
 pub use tokenizer::{Tokenizer, SubTokenizer, TokenizerTrait};
 pub use embeddings::Embeddings;
+pub use parser::{Parser, DefaultParser, MarkdownParser, create_parser};
 
 /// A chunk of text from a document with position information
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -61,7 +63,17 @@ impl Document {
     }
     
     pub fn new_with_chunk_size(file_path: PathBuf, content: String, max_chunk_size: usize) -> Self {
-        let chunks = Self::create_chunks(&content, max_chunk_size);
+        let parser = create_parser(&file_path);
+        Self::new_with_parser_boxed(file_path, content, max_chunk_size, parser)
+    }
+    
+    pub fn new_with_parser<P: Parser>(
+        file_path: PathBuf, 
+        content: String, 
+        max_chunk_size: usize, 
+        parser: &P
+    ) -> Self {
+        let chunks = parser.parse(&content, max_chunk_size);
         Self {
             file_path,
             content,
@@ -69,40 +81,18 @@ impl Document {
         }
     }
     
-    fn create_chunks(content: &str, max_size: usize) -> Vec<Chunk> {
-        let mut chunks = Vec::new();
-        let mut current_pos = 0;
-        
-        while current_pos < content.len() {
-            let chunk_end = if current_pos + max_size >= content.len() {
-                content.len()
-            } else {
-                // Find the last word boundary within max_size
-                let search_end = current_pos + max_size;
-                let chunk_text = &content[current_pos..search_end];
-                
-                // Find the last whitespace to avoid splitting words
-                if let Some(last_space) = chunk_text.rfind(char::is_whitespace) {
-                    current_pos + last_space + 1
-                } else {
-                    // If no whitespace found, use the full max_size
-                    search_end
-                }
-            };
-            
-            let chunk_content = content[current_pos..chunk_end].trim().to_string();
-            if !chunk_content.is_empty() {
-                chunks.push(Chunk::new(chunk_content, current_pos, chunk_end));
-            }
-            
-            current_pos = chunk_end;
-            // Skip any leading whitespace for the next chunk
-            while current_pos < content.len() && content.chars().nth(current_pos).unwrap().is_whitespace() {
-                current_pos += 1;
-            }
+    pub fn new_with_parser_boxed(
+        file_path: PathBuf, 
+        content: String, 
+        max_chunk_size: usize, 
+        parser: Box<dyn Parser>
+    ) -> Self {
+        let chunks = parser.parse(&content, max_chunk_size);
+        Self {
+            file_path,
+            content,
+            chunks,
         }
-        
-        chunks
     }
     
     pub fn chunk_count(&self) -> usize {

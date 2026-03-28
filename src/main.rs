@@ -102,22 +102,30 @@ fn get_documents(
     chunk_size: usize,
 ) -> Result<Vec<Document>> {
     // Check if we should read from stdin (piped input)
+    // Only read from stdin if it's not a terminal AND there's actually data available
     if !io::stdin().is_terminal() {
-        // Read from stdin
+        // Try to read from stdin non-blockingly to see if there's data
         let mut buffer = String::new();
-        io::stdin().read_to_string(&mut buffer)?;
-        
-        if buffer.trim().is_empty() {
-            eprintln!("No input provided via stdin");
-            return Ok(Vec::new());
+        match io::stdin().read_to_string(&mut buffer) {
+            Ok(_) if !buffer.trim().is_empty() => {
+                // We have actual data from stdin
+                Ok(vec![Document::new_with_chunk_size(
+                    PathBuf::from("<stdin>"),
+                    buffer,
+                    chunk_size
+                )])
+            }
+            Ok(_) => {
+                // stdin is available but empty, treat as no stdin input
+                let file_walker = FileWalker::new_with_chunk_size(path, extensions, chunk_size);
+                file_walker.collect_documents()
+            }
+            Err(_) => {
+                // Error reading stdin, fall back to file walker
+                let file_walker = FileWalker::new_with_chunk_size(path, extensions, chunk_size);
+                file_walker.collect_documents()
+            }
         }
-        
-        // Create a document from stdin content
-        Ok(vec![Document::new_with_chunk_size(
-            PathBuf::from("<stdin>"),
-            buffer,
-            chunk_size
-        )])
     } else {
         // Walk files and collect content
         let file_walker = FileWalker::new_with_chunk_size(path, extensions, chunk_size);

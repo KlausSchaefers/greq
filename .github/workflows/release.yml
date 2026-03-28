@@ -31,13 +31,7 @@ jobs:
             target: x86_64-pc-windows-msvc
             bin: greq.exe
             archive_name: greq.exe
-            
-          - name: macOS Intel
-            os: macos-latest
-            target: x86_64-apple-darwin
-            bin: greq
-            archive_name: greq
-            
+                        
           - name: macOS ARM64
             os: macos-latest
             target: aarch64-apple-darwin
@@ -184,16 +178,6 @@ jobs:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
           asset_path: ./Windows x86_64/greq.exe
           asset_name: greq-windows-x86_64.exe
-          asset_content_type: application/octet-stream
-
-      - name: Upload macOS Intel
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./macOS Intel/greq
-          asset_name: greq-macos-intel
           asset_content_type: application/octet-stream
 
       - name: Upload macOS ARM64

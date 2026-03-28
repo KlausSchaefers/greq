@@ -26,8 +26,7 @@ Greq uses the BM25 (Best Matching 25) ranking algorithm to score text relevance:
 
 This makes Greq particularly effective for:
 - ✅ Multi-word queries
-- ✅ Concept-based searches  
-- ✅ Finding relevant passages in large codebases
+- ✅ Semantic searches  
 - ✅ Research and documentation search
 
 Use `grep` for:

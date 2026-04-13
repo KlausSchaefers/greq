@@ -72,7 +72,6 @@ cat file.txt | greq 'my query'
     <QUERY>                  Search query
     [PATH]                   Directory or file to search [default: .]
 
-  -e, --extensions <EXT>     File extensions (e.g., "rs,py,js")
   -n, --n <N>               Number of results [default: 3]
   -C, --context <CONTEXT>   Context chunks around matches [default: 1]
   -s, --chunk-size <SIZE>   Chunk size in characters [default: 200]
@@ -210,6 +209,11 @@ cargo build
 **Release**
 ```bash
 cargo build --release
+```
+
+**Test**
+```bash
+cargo run 
 ```
 
 

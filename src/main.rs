@@ -8,19 +8,15 @@ use std::io::{self, IsTerminal, Read};
 
 #[derive(Parser)]
 #[command(name = "greq")]
-#[command(about = "Grep + Query: A file search tool with BM25 ranking")]
+#[command(about = "Grep + Query: A file search tool with BM25 and semantic ranking")]
 #[command(version)]
 struct Cli {
     /// Search query
     query: String,
     
-    /// Directory or file to search in
+    /// Directories or files to search in
     #[arg(default_value = ".")]
-    path: PathBuf,
-    
-    /// File extensions to include (e.g., "rs,py,js")
-    #[arg(short, long)]
-    extensions: Option<String>,
+    paths: Vec<PathBuf>,
     
     /// Number of top results to show
     #[arg(short = 'n', long, default_value = "3")]
@@ -59,13 +55,8 @@ struct Cli {
 fn main() -> Result<()> {
     let cli = Cli::parse();
     
-    // Parse file extensions if provided
-    let extensions: Option<Vec<String>> = cli.extensions.clone().map(|ext_str| {
-        ext_str.split(',').map(|s| s.trim().to_string()).collect()
-    });
-    
     // Get documents from either stdin or file walker
-    let documents = get_documents(cli.path.clone(), extensions, cli.chunk_size)?;
+    let documents = get_documents(cli.paths.clone(), cli.chunk_size)?;
     
     if documents.is_empty() {
         println!("No files found to search");
@@ -97,8 +88,7 @@ fn main() -> Result<()> {
 }
 
 fn get_documents(
-    path: PathBuf,
-    extensions: Option<Vec<String>>,
+    paths: Vec<PathBuf>,
     chunk_size: usize,
 ) -> Result<Vec<Document>> {
     // Check if we should read from stdin (piped input)
@@ -117,20 +107,32 @@ fn get_documents(
             }
             Ok(_) => {
                 // stdin is available but empty, treat as no stdin input
-                let file_walker = FileWalker::new_with_chunk_size(path, extensions, chunk_size);
-                file_walker.collect_documents()
+                collect_documents_from_paths(paths, chunk_size)
             }
             Err(_) => {
                 // Error reading stdin, fall back to file walker
-                let file_walker = FileWalker::new_with_chunk_size(path, extensions, chunk_size);
-                file_walker.collect_documents()
+                collect_documents_from_paths(paths, chunk_size)
             }
         }
     } else {
         // Walk files and collect content
-        let file_walker = FileWalker::new_with_chunk_size(path, extensions, chunk_size);
-        file_walker.collect_documents()
+        collect_documents_from_paths(paths, chunk_size)
     }
+}
+
+fn collect_documents_from_paths(
+    paths: Vec<PathBuf>,
+    chunk_size: usize,
+) -> Result<Vec<Document>> {
+    let mut all_documents = Vec::new();
+    
+    for path in paths {
+        let file_walker = FileWalker::new_with_chunk_size(path, None, chunk_size);
+        let mut documents = file_walker.collect_documents()?;
+        all_documents.append(&mut documents);
+    }
+    
+    Ok(all_documents)
 }
 
 fn display_json_results(results: &[SearchResult]) -> Result<()> {

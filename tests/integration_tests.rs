@@ -10,7 +10,7 @@ fn test_cli_help() -> Result<(), Box<dyn std::error::Error>> {
     cmd.arg("--help");
     cmd.assert()
         .success()
-        .stdout(predicate::str::contains("Grep + Query: A file search tool with BM25 ranking"));
+        .stdout(predicate::str::contains("Grep + Query: A file search tool with BM25 and semantic ranking"));
 
     Ok(())
 }
@@ -44,7 +44,7 @@ fn test_missing_query() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 #[test]
-fn test_file_extensions_filter() -> Result<(), Box<dyn std::error::Error>> {
+fn test_glob_pattern_filter() -> Result<(), Box<dyn std::error::Error>> {
     let temp_dir = tempdir()?;
     let rust_file = temp_dir.path().join("test.rs");
     let text_file = temp_dir.path().join("test.txt");
@@ -52,16 +52,17 @@ fn test_file_extensions_filter() -> Result<(), Box<dyn std::error::Error>> {
     fs::write(&rust_file, "Hello main function")?;
     fs::write(&text_file, "Hello world")?;
 
+    // Test glob pattern to only search .rs files
+    let glob_pattern = format!("{}/*.rs", temp_dir.path().display());
     let mut cmd = Command::cargo_bin("greq")?;
     cmd.arg("Hello")
-        .arg("--extensions")
-        .arg("rs")
         .arg("--show-meta")
-        .arg(temp_dir.path());
+        .arg(&glob_pattern);
     
     cmd.assert()
         .success()
-        .stdout(predicate::str::contains("test.rs"));
+        .stdout(predicate::str::contains("test.rs"))
+        .stdout(predicate::str::contains("test.txt").not());
 
     Ok(())
 }

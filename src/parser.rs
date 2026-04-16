@@ -1,6 +1,20 @@
 use crate::Chunk;
 use std::path::Path;
 
+/// Safety function to find a valid UTF-8 byte boundary at or before the given position
+fn find_safe_byte_boundary(text: &str, pos: usize) -> usize {
+    if pos >= text.len() {
+        return text.len();
+    }
+    
+    // Find the nearest char boundary at or before pos
+    let mut safe_pos = pos;
+    while safe_pos > 0 && !text.is_char_boundary(safe_pos) {
+        safe_pos -= 1;
+    }
+    safe_pos
+}
+
 /// Trait for parsing text content into chunks
 pub trait Parser {
     /// Parse text content into chunks
@@ -34,14 +48,14 @@ impl Parser for DefaultParser {
                 content.len()
             } else {
                 // Find the last word boundary within max_size
-                let search_end = current_pos + max_size;
+                let search_end = find_safe_byte_boundary(content, current_pos + max_size);
                 let chunk_text = &content[current_pos..search_end];
                 
                 // Find the last whitespace to avoid splitting words
                 if let Some(last_space) = chunk_text.rfind(char::is_whitespace) {
                     current_pos + last_space + 1
                 } else {
-                    // If no whitespace found, use the full max_size
+                    // If no whitespace found, use the safe search_end
                     search_end
                 }
             };
@@ -53,8 +67,16 @@ impl Parser for DefaultParser {
             
             current_pos = chunk_end;
             // Skip any leading whitespace for the next chunk
-            while current_pos < content.len() && content.chars().nth(current_pos).unwrap().is_whitespace() {
-                current_pos += 1;
+            while current_pos < content.len() {
+                if let Some(ch) = content[current_pos..].chars().next() {
+                    if ch.is_whitespace() {
+                        current_pos += ch.len_utf8();
+                    } else {
+                        break;
+                    }
+                } else {
+                    break;
+                }
             }
         }
         
@@ -110,14 +132,14 @@ impl MarkdownParser {
                 line.len()
             } else {
                 // Find the last word boundary within max_size
-                let search_end = current_pos + max_size;
+                let search_end = find_safe_byte_boundary(line, current_pos + max_size);
                 let chunk_text = &line[current_pos..search_end];
                 
                 // Find the last whitespace to avoid splitting words
                 if let Some(last_space) = chunk_text.rfind(char::is_whitespace) {
                     current_pos + last_space + 1
                 } else {
-                    // If no whitespace found, use the full max_size
+                    // If no whitespace found, use the safe search_end
                     search_end
                 }
             };
@@ -133,8 +155,16 @@ impl MarkdownParser {
             
             current_pos = chunk_end;
             // Skip any leading whitespace for the next chunk
-            while current_pos < line.len() && line.chars().nth(current_pos).unwrap().is_whitespace() {
-                current_pos += 1;
+            while current_pos < line.len() {
+                if let Some(ch) = line[current_pos..].chars().next() {
+                    if ch.is_whitespace() {
+                        current_pos += ch.len_utf8();
+                    } else {
+                        break;
+                    }
+                } else {
+                    break;
+                }
             }
         }
         

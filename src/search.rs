@@ -53,9 +53,7 @@ impl SearchEngine {
         if self.embedding_weight > 0.0 {
             if let Some(embeddings) = &self.embeddings {
                 let embedding_chunk_results = embeddings.search(&self.documents, query, 0.001);
-                print!("DEBUG: BM25 found {} chunks, Embeddings found {} chunks", bm25_chunk_results.len(), embedding_chunk_results.len());
-                
-                // Combine BM25 and embedding scores using efficient HashMap lookup
+                 // Combine BM25 and embedding scores using efficient HashMap lookup
                 for ((doc_idx, chunk_idx), embedding_score) in embedding_chunk_results {
                     let bm25_score = bm25_chunk_results.get(&(doc_idx, chunk_idx))
                         .copied()
